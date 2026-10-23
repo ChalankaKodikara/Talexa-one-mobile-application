@@ -1,7 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages, deprecated_member_use
 
 import 'dart:io';
-import 'package:corehris/modules/HRMS/main_screens/attendance/pages/attendance_edit_screen.dart';
+import 'package:corehris/modules/HRMS/main_screens/attendance/pages/attendance_adjustment_home.dart';
 import 'package:corehris/modules/HRMS/main_screens/facilities/claim_status_screen.dart';
 import 'package:corehris/modules/HRMS/main_screens/overtime/screens/overtime_assign_screen.dart';
 import 'package:corehris/modules/HRMS/main_screens/teamscreen/screens/team_page.dart';
@@ -111,10 +111,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       {
         'icon': LucideIcons.edit3,
-        'label': 'Attendance Edit',
+        'label': 'Attendance Adjustment',
         'color': const Color(0xFF3B82F6),
         'bg': const Color(0xFFEAF4FF),
-        'page': () => AttendanceEditScreen(),
+        'page': () => const AttendanceAdjustmentHome(),
       }
     ];
 

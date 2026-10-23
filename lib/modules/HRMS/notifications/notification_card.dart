@@ -1,262 +1,216 @@
-import 'dart:ui';
 import 'package:corehris/modules/HRMS/notifications/controller/notification_con.dart';
-import 'package:corehris/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+/// A clean, rounded Talexa notification popup.
+/// Keeps the existing NotificationController navigation / business logic.
 class NotificationPopupCard extends StatelessWidget {
+  const NotificationPopupCard({super.key, required this.notification});
+
   final Map<String, dynamic> notification;
 
-  const NotificationPopupCard({
-    super.key,
-    required this.notification,
-  });
+  static const Color _blue = Color(0xFF1769E8);
+  static const Color _navy = Color(0xFF182237);
+  static const Color _muted = Color(0xFF89919D);
 
   @override
   Widget build(BuildContext context) {
-    final NotificationController controller =
-        Get.isRegistered<NotificationController>()
-            ? Get.find<NotificationController>()
-            : Get.put(NotificationController());
+    final controller = Get.isRegistered<NotificationController>()
+        ? Get.find<NotificationController>()
+        : Get.put(NotificationController());
 
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF1B2638) : Colors.white;
+    final ink = isDark ? Colors.white : _navy;
+    final secondary = isDark ? const Color(0xFFABB7C9) : _muted;
+    final line = isDark ? Colors.white12 : const Color(0xFFECEFF3);
+    final soft = isDark ? const Color(0xFF263449) : const Color(0xFFF5F6F8);
 
-    final String message = notification['message'] ?? 'No message';
-    final String type = notification['type'] ?? 'INFO';
-    final DateTime time =
-        DateTime.tryParse(notification['timestamp'] ?? '') ?? DateTime.now();
-
-    final String formattedTime =
-        DateFormat('MMM d, yyyy • hh:mm a').format(time.toLocal());
-
-    final Color overlayColor = isDark
-        ? Colors.black.withOpacity(0.65)
-        : Colors.black.withOpacity(0.28);
-
-    final Color cardColor = isDark ? const Color(0xFF111827) : Colors.white;
-    final Color titleColor = isDark ? Colors.white : const Color(0xFF1F2937);
-    final Color bodyColor = isDark ? Colors.white70 : const Color(0xFF6B7280);
-    final Color lightBorder =
-        isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFEDEDED);
+    final type = (notification['type'] ?? 'INFO').toString().toUpperCase();
+    final message = (notification['message'] ?? 'No message').toString().trim();
+    final timestamp = notification['timestamp']?.toString() ?? '';
+    final parsedTime = DateTime.tryParse(timestamp);
+    final formattedTime = parsedTime == null
+        ? null
+        : DateFormat('d MMM yyyy • h:mm a').format(parsedTime.toLocal());
+    final accent = _accent(type);
+    final screenSize = MediaQuery.sizeOf(context);
 
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
           Positioned.fill(
-            child: Container(color: overlayColor),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).maybePop(),
+              child: ColoredBox(
+                color: Colors.black.withOpacity(isDark ? 0.67 : 0.42),
+              ),
+            ),
           ),
           Center(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.92, end: 1),
-              duration: const Duration(milliseconds: 320),
-              curve: Curves.easeOutBack,
-              builder: (context, scale, child) {
-                return Transform.scale(scale: scale, child: child);
-              },
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.88,
-                constraints: const BoxConstraints(maxWidth: 360),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.28 : 0.12),
-                      blurRadius: 28,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: lightBorder,
-                    width: 1,
-                  ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.96, end: 1),
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                builder: (context, progress, child) => Transform.scale(
+                  scale: progress,
+                  child: Opacity(opacity: progress, child: child),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    /// TOP BAR
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        InkWell(
-                          onTap: Get.back,
-                          borderRadius: BorderRadius.circular(99),
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.06)
-                                  : const Color(0xFFF7F7F7),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: lightBorder),
-                            ),
-                            child: Icon(
-                              Icons.close_rounded,
-                              size: 18,
-                              color: isDark
-                                  ? Colors.white70
-                                  : const Color(0xFF9CA3AF),
-                            ),
-                          ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 390,
+                    maxHeight: screenSize.height - 56,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
+                    decoration: BoxDecoration(
+                      color: surface,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: line),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.25 : 0.13),
+                          blurRadius: 32,
+                          offset: const Offset(0, 16),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 4),
-
-                    /// ICON / ILLUSTRATION AREA
-                    Container(
-                      width: 122,
-                      height: 122,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: _getIllustrationGradient(type, isDark),
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _getAccentColor(type).withOpacity(0.22),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: soft,
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Text(
+                                  'NOTIFICATION',
+                                  style: TextStyle(
+                                    color: secondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Close',
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
+                                visualDensity: VisualDensity.compact,
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  size: 21,
+                                  color: secondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Icon(
+                              _icon(type),
+                              color: accent,
+                              size: 43,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            _title(type),
+                            style: TextStyle(
+                              color: ink,
+                              fontSize: 23,
+                              height: 1.2,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            message.isEmpty ? 'No message' : message,
+                            style: TextStyle(
+                              color: secondary,
+                              fontSize: 14,
+                              height: 1.55,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          if (formattedTime != null) ...[
+                            const SizedBox(height: 17),
+                            Row(
+                              children: [
+                                Icon(Icons.schedule_rounded,
+                                    color: secondary, size: 15),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    formattedTime,
+                                    style: TextStyle(
+                                      color: secondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 25),
+                          Divider(height: 1, thickness: 1, color: line),
+                          const SizedBox(height: 22),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: () => controller
+                                  .handleNotificationTap(notification),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _blue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: const StadiumBorder(),
+                              ),
+                              child: Text(
+                                _buttonText(type),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 9),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            style: TextButton.styleFrom(
+                              foregroundColor: secondary,
+                              minimumSize: const Size(double.infinity, 42),
+                              shape: const StadiumBorder(),
+                            ),
+                            child: const Text(
+                              'Maybe later',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Container(
-                          width: 76,
-                          height: 76,
-                          decoration: BoxDecoration(
-                            color:
-                                Colors.white.withOpacity(isDark ? 0.12 : 0.92),
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          child: Icon(
-                            _getIcon(type),
-                            size: 38,
-                            color: _getAccentColor(type),
-                          ),
-                        ),
-                      ),
                     ),
-
-                    const SizedBox(height: 22),
-
-                    /// TITLE
-                    Text(
-                      _getTitle(type),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: titleColor,
-                        height: 1.2,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    /// MESSAGE
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: bodyColor,
-                        height: 1.5,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Text(
-                      formattedTime,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: bodyColor.withOpacity(0.9),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    /// PRIMARY BUTTON
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: isDark
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF2F3640),
-                                    Color(0xFF111827),
-                                  ],
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF2D2F39),
-                                    Color(0xFF111111),
-                                  ],
-                                ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.18),
-                              blurRadius: 14,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            controller.handleNotificationTap(notification);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary2,
-                            shadowColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: Text(
-                            _getPrimaryButtonText(type),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    /// SECONDARY ACTION
-                    TextButton(
-                      onPressed: Get.back,
-                      style: TextButton.styleFrom(
-                        foregroundColor:
-                            isDark ? Colors.white70 : const Color(0xFF4B5563),
-                      ),
-                      child: const Text(
-                        "I'll do it later",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -266,8 +220,8 @@ class NotificationPopupCard extends StatelessWidget {
     );
   }
 
-  String _getTitle(String type) {
-    switch (type.toUpperCase()) {
+  static String _title(String type) {
+    switch (type) {
       case 'LEAVE':
         return 'Leave request update';
       case 'ATTENDANCE':
@@ -285,8 +239,8 @@ class NotificationPopupCard extends StatelessWidget {
     }
   }
 
-  String _getPrimaryButtonText(String type) {
-    switch (type.toUpperCase()) {
+  static String _buttonText(String type) {
+    switch (type) {
       case 'APPROVAL':
         return 'Start onboarding';
       case 'LEAVE':
@@ -302,62 +256,37 @@ class NotificationPopupCard extends StatelessWidget {
     }
   }
 
-  IconData _getIcon(String type) {
-    switch (type.toUpperCase()) {
+  static IconData _icon(String type) {
+    switch (type) {
       case 'LEAVE':
-        return Icons.beach_access_rounded;
+        return Icons.event_available_outlined;
       case 'ATTENDANCE':
-        return Icons.access_time_filled_rounded;
+        return Icons.schedule_rounded;
       case 'PAYROLL':
-        return Icons.account_balance_wallet_rounded;
+        return Icons.account_balance_wallet_outlined;
       case 'NOTICE':
-        return Icons.notifications_active_rounded;
+        return Icons.notifications_none_rounded;
       case 'APPROVAL':
-        return Icons.verified_rounded;
+        return Icons.check_circle_outline_rounded;
       case 'REJECTION':
-        return Icons.cancel_rounded;
+        return Icons.error_outline_rounded;
       default:
         return Icons.info_outline_rounded;
     }
   }
 
-  Color _getAccentColor(String type) {
-    switch (type.toUpperCase()) {
-      case 'LEAVE':
-        return const Color(0xFF8B5CF6);
-      case 'ATTENDANCE':
-        return const Color(0xFF3B82F6);
-      case 'PAYROLL':
-        return const Color(0xFF10B981);
-      case 'NOTICE':
-        return const Color(0xFFF59E0B);
+  static Color _accent(String type) {
+    switch (type) {
       case 'APPROVAL':
-        return const Color(0xFF10B981);
+        return const Color(0xFF16A36A);
       case 'REJECTION':
-        return const Color(0xFFEF4444);
-      default:
-        return AppColors.primary2;
-    }
-  }
-
-  List<Color> _getIllustrationGradient(String type, bool isDark) {
-    switch (type.toUpperCase()) {
-      case 'APPROVAL':
-        return const [Color(0xFF34D399), Color(0xFF10B981)];
-      case 'REJECTION':
-        return const [Color(0xFFF87171), Color(0xFFEF4444)];
+        return const Color(0xFFD64550);
       case 'PAYROLL':
-        return const [Color(0xFF6EE7B7), Color(0xFF10B981)];
-      case 'ATTENDANCE':
-        return const [Color(0xFF60A5FA), Color(0xFF2563EB)];
+        return const Color(0xFF16A36A);
       case 'NOTICE':
-        return const [Color(0xFFFCD34D), Color(0xFFF59E0B)];
-      case 'LEAVE':
-        return const [Color(0xFFA78BFA), Color(0xFF8B5CF6)];
+        return const Color(0xFFE4A11B);
       default:
-        return isDark
-            ? [const Color(0xFF6366F1), const Color(0xFF4338CA)]
-            : [const Color(0xFF818CF8), const Color(0xFF6366F1)];
+        return _blue;
     }
   }
 }

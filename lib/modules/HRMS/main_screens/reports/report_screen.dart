@@ -4,10 +4,16 @@ import 'package:corehris/modules/HRMS/main_screens/dashboard/controllers/dash_co
 import 'package:corehris/modules/HRMS/main_screens/reports/attendance_edit_screen.dart';
 import 'package:corehris/modules/HRMS/main_screens/reports/attendance_report.dart';
 import 'package:corehris/modules/HRMS/main_screens/reports/leave_report.dart';
-import 'package:corehris/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+const _blue = Color(0xFF1769E8);
+const _navy = Color(0xFF182237);
+const _muted = Color(0xFF89919D);
+const _lightBackground = Color(0xFFF5F6F8);
+const _darkBackground = Color(0xFF101623);
+const _darkSurface = Color(0xFF1B2638);
 
 class ReportTile {
   const ReportTile({
@@ -35,13 +41,13 @@ class ReportController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-
     try {
       final dash = Get.find<DashboardController>();
       username.value = dash.username.value;
       empName.value = dash.employeeName.value;
-    } catch (_) {}
-
+    } catch (_) {
+      // Reports remain available when DashboardController is not registered.
+    }
     _buildTiles();
   }
 
@@ -50,222 +56,200 @@ class ReportController extends GetxController {
       ReportTile(
         icon: LucideIcons.calendarClock,
         title: 'Attendance Report',
-        subtitle: 'Daily attendance, punch times, status and date filters.',
+        subtitle: 'Daily records, punch times and attendance status',
         category: 'Attendance',
-        accentColor: const Color(0xFF16A34A),
+        accentColor: _blue,
         onTap: openAttendanceReport,
       ),
       ReportTile(
         icon: LucideIcons.filePenLine,
         title: 'Attendance Edit Report',
-        subtitle: 'Correction requests, review status, comments and history.',
+        subtitle: 'Correction requests and approval history',
         category: 'Attendance',
-        accentColor: const Color(0xFF2563EB),
+        accentColor: _blue,
         onTap: openAttendanceEditReport,
       ),
       ReportTile(
         icon: LucideIcons.umbrella,
         title: 'Leave Report',
-        subtitle: 'Leave requests, approvals, balances and filtered history.',
+        subtitle: 'Leave requests, balances and approval history',
         category: 'Leave',
-        accentColor: const Color(0xFFF59E0B),
+        accentColor: _blue,
         onTap: openLeaveReport,
       ),
     ]);
   }
 
-  void openAttendanceReport() {
-    Get.to(() => AttendanceReportScreen());
-  }
+  void openAttendanceReport() => Get.to(() => AttendanceReportScreen());
 
-  void openAttendanceEditReport() {
-    Get.to(() => const AttendanceEditReportScreen());
-  }
+  void openAttendanceEditReport() =>
+      Get.to(() => const AttendanceEditReportScreen());
 
-  void openLeaveReport() {
-    Get.to(() => LeaveReportPage(username: username.value));
-  }
+  void openLeaveReport() =>
+      Get.to(() => LeaveReportPage(username: username.value));
 }
 
 class ReportScreen extends StatelessWidget {
   ReportScreen({super.key});
 
-  final ReportController controller = Get.put(ReportController());
+  final ReportController controller = Get.isRegistered<ReportController>()
+      ? Get.find<ReportController>()
+      : Get.put(ReportController());
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final background =
-        isDark ? const Color(0xFF0F172A) : const Color(0xFFF5F7FB);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final background = dark ? _darkBackground : _lightBackground;
+    final foreground = dark ? Colors.white : _navy;
 
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
+        title: const Text('Reports'),
+        titleTextStyle: TextStyle(
+          color: foreground,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: background,
-        centerTitle: true,
+        foregroundColor: foreground,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          onPressed: Get.back,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        title: const Text(
-          'Reports',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          onPressed: () => Get.back(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
         ),
       ),
       body: Obx(() {
-        final reports = controller.tiles;
-
+        final reports = controller.tiles.toList();
+        final employeeName = controller.empName.value.trim();
         if (reports.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: _blue));
         }
 
-        final attendanceReports =
-            reports.where((item) => item.category == 'Attendance').toList();
-        final leaveReports =
-            reports.where((item) => item.category == 'Leave').toList();
+        final attendance =
+            reports.where((r) => r.category == 'Attendance').toList();
+        final leave = reports.where((r) => r.category == 'Leave').toList();
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _ReportOverviewCard(
-              employeeName: controller.empName.value,
-              reportCount: reports.length,
+        return SafeArea(
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 36),
+                children: [
+                  _ReportsIntro(
+                      employeeName: employeeName, total: reports.length),
+                  const SizedBox(height: 24),
+                  _SectionHeading(
+                    title: 'Attendance',
+                    subtitle: 'Your daily records and adjustments',
+                    count: attendance.length,
+                  ),
+                  const SizedBox(height: 11),
+                  _ReportGroup(items: attendance),
+                  const SizedBox(height: 26),
+                  _SectionHeading(
+                    title: 'Leave',
+                    subtitle: 'Requests, approvals and balances',
+                    count: leave.length,
+                  ),
+                  const SizedBox(height: 11),
+                  _ReportGroup(items: leave),
+                  const SizedBox(height: 22),
+                  _ReportsFootnote(),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
-            _ReportSummaryRow(
-              attendanceCount: attendanceReports.length,
-              leaveCount: leaveReports.length,
-            ),
-            const SizedBox(height: 18),
-            _ReportSection(
-              title: 'Attendance',
-              subtitle: 'Punch records and correction requests',
-              children: attendanceReports
-                  .map((report) => ReportListCard(report: report))
-                  .toList(),
-            ),
-            const SizedBox(height: 18),
-            _ReportSection(
-              title: 'Leave',
-              subtitle: 'Leave request and balance history',
-              children: leaveReports
-                  .map((report) => ReportListCard(report: report))
-                  .toList(),
-            ),
-          ],
+          ),
         );
       }),
     );
   }
 }
 
-class _ReportOverviewCard extends StatelessWidget {
-  const _ReportOverviewCard({
-    required this.employeeName,
-    required this.reportCount,
-  });
-
+class _ReportsIntro extends StatelessWidget {
+  const _ReportsIntro({required this.employeeName, required this.total});
   final String employeeName;
-  final int reportCount;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final name = employeeName.trim().isEmpty ? 'Employee' : employeeName.trim();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary2,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary2.withValues(
-              alpha: isDark ? 0.18 : 0.14,
-            ),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Report Center',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '$name, view $reportCount reports with faster navigation.',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.88),
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              LucideIcons.chartColumn,
-              color: Colors.white,
-              size: 25,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportSummaryRow extends StatelessWidget {
-  const _ReportSummaryRow({
-    required this.attendanceCount,
-    required this.leaveCount,
-  });
-
-  final int attendanceCount;
-  final int leaveCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final mainColor = dark ? Colors.white : _navy;
+    final secondary = dark ? const Color(0xFF9AA8BA) : _muted;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _SummaryPill(
-            icon: LucideIcons.calendarClock,
-            label: 'Attendance',
-            count: attendanceCount,
-            color: const Color(0xFF16A34A),
+        const Text(
+          'REPORT CENTER',
+          style: TextStyle(
+            color: _blue,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+            fontSize: 11,
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryPill(
-            icon: LucideIcons.umbrella,
-            label: 'Leave',
-            count: leaveCount,
-            color: const Color(0xFFF59E0B),
+        const SizedBox(height: 8),
+        Text(
+          'Your reports',
+          style: TextStyle(
+            color: mainColor,
+            fontSize: 27,
+            height: 1.15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.6,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          employeeName.isEmpty
+              ? 'View and manage your HR reports in one place.'
+              : '$employeeName, access your HR reports in one place.',
+          style: TextStyle(color: secondary, fontSize: 13, height: 1.45),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 16),
+          decoration: BoxDecoration(
+            color: dark ? _darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: dark ? const Color(0xFF2B374B) : const Color(0xFFECEFF3),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.files, color: _blue, size: 26),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$total reports available',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: mainColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Select a report to view its details',
+                      style: TextStyle(fontSize: 12, color: secondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.check_circle_outline_rounded,
+                  color: _blue, size: 20),
+            ],
           ),
         ),
       ],
@@ -273,200 +257,164 @@ class _ReportSummaryRow extends StatelessWidget {
   }
 }
 
-class _SummaryPill extends StatelessWidget {
-  const _SummaryPill({
-    required this.icon,
-    required this.label,
-    required this.count,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final int count;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.white10 : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$count',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportSection extends StatelessWidget {
-  const _ReportSection({
-    required this.title,
-    required this.subtitle,
-    required this.children,
-  });
-
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(
+      {required this.title, required this.subtitle, required this.count});
   final String title;
   final String subtitle;
-  final List<Widget> children;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: dark ? Colors.white : _navy,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.60),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: dark ? const Color(0xFF9AA8BA) : _muted,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        ...children,
+        Text(
+          '$count',
+          style: const TextStyle(
+              color: _blue, fontSize: 13, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }
 }
 
-class ReportListCard extends StatelessWidget {
-  const ReportListCard({
-    super.key,
-    required this.report,
-  });
+class _ReportGroup extends StatelessWidget {
+  const _ReportGroup({required this.items});
+  final List<ReportTile> items;
 
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: dark ? _darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: dark ? const Color(0xFF2B374B) : const Color(0xFFECEFF3),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 55,
+                color: dark ? const Color(0xFF2B374B) : const Color(0xFFF0F2F5),
+              ),
+            ReportListCard(report: items[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class ReportListCard extends StatelessWidget {
+  const ReportListCard({super.key, required this.report});
   final ReportTile report;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return RepaintBoundary(
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        elevation: 0,
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: isDark ? Colors.white10 : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: InkWell(
-          onTap: report.onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: report.accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    report.icon,
-                    color: report.accentColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        report.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: report.onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 17),
+          child: Row(
+            children: [
+              Icon(report.icon, size: 23, color: _blue),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      report.title,
+                      style: TextStyle(
+                        color: dark ? Colors.white : _navy,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        report.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          height: 1.35,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.64,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      report.subtitle,
+                      style: TextStyle(
+                        color: dark ? const Color(0xFF9AA8BA) : _muted,
+                        fontSize: 11.5,
+                        height: 1.35,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.40),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 22,
+                color: dark ? const Color(0xFF748197) : const Color(0xFFADB4BF),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ReportsFootnote extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.info_outline_rounded,
+          size: 16,
+          color: dark ? const Color(0xFF9AA8BA) : _muted,
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            'Report information reflects the latest data available in your HRMS account.',
+            style: TextStyle(
+              color: dark ? const Color(0xFF9AA8BA) : _muted,
+              fontSize: 11.5,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

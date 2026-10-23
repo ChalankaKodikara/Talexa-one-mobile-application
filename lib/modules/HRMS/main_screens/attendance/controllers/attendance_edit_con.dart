@@ -84,6 +84,8 @@ class AttendanceEditController extends GetxController {
 
   static const String editCheckOut = 'CHECK_OUT';
 
+  static const String editStatus = 'STATUS';
+
   final RxString selectedEditType = ''.obs;
 
   // ============================================================
@@ -91,6 +93,8 @@ class AttendanceEditController extends GetxController {
   // ============================================================
 
   final RxString adjustmentType = ''.obs;
+
+  String _requestedEntryType = ''; 
 
   static const String addCheckIn = 'ADD_CHECK_IN';
 
@@ -169,6 +173,21 @@ class AttendanceEditController extends GetxController {
       }
 
       await fetchAttendanceForSelectedDate();
+
+      if (attendanceFound.value && _requestedEntryType.isNotEmpty) {
+        final entry = _requestedEntryType;
+        if ((entry == addCheckIn && !hasCurrentCheckIn) ||
+            (entry == updateCheckIn && hasCurrentCheckIn)) {
+          selectEditType(editCheckIn);
+        } else if ((entry == addCheckOut && !hasCurrentCheckOut) ||
+                   (entry == updateCheckOut && hasCurrentCheckOut)) {
+          selectEditType(editCheckOut);
+        } else if (entry == updateStatus) {
+          selectEditType(editStatus);
+        } else if (entry == fullDayCorrection) {
+          selectEditType(editFullDay);
+        }
+      }
 
       hasChanges.value = false;
     } catch (e, stackTrace) {
@@ -266,6 +285,8 @@ class AttendanceEditController extends GetxController {
     final Map<String, dynamic> args = Map<String, dynamic>.from(
       arguments,
     );
+
+    _requestedEntryType = _readMap(args, <String>['adjustment_type']);
 
     final String argumentDate = _readMap(
       args,
@@ -617,6 +638,8 @@ class AttendanceEditController extends GetxController {
 
   bool get isCheckOutEdit => selectedEditType.value == editCheckOut;
 
+  bool get isStatusEdit => selectedEditType.value == editStatus;
+
   bool get canEditCheckIn => isFullDayEdit || isCheckInEdit;
 
   bool get canEditCheckOut => isFullDayEdit || isCheckOutEdit;
@@ -628,7 +651,7 @@ class AttendanceEditController extends GetxController {
       return;
     }
 
-    if (type != editFullDay && type != editCheckIn && type != editCheckOut) {
+    if (type != editFullDay && type != editCheckIn && type != editCheckOut && type != editStatus) {
       return;
     }
 
@@ -867,6 +890,10 @@ class AttendanceEditController extends GetxController {
       return checkInChanged || checkOutChanged || statusChanged;
     }
 
+    if (isStatusEdit) {
+      return statusChanged;
+    }
+
     return false;
   }
 
@@ -925,6 +952,10 @@ class AttendanceEditController extends GetxController {
 
     if (changedFields == 0) {
       return '';
+    }
+
+    if (isFullDayEdit && changedFields > 0) {
+      return fullDayCorrection;
     }
 
     if (changedFields > 1) {
@@ -1293,6 +1324,8 @@ class AttendanceEditController extends GetxController {
       correctionName = 'Check In Correction';
     } else if (isCheckOutEdit) {
       correctionName = 'Check Out Correction';
+    } else if (isStatusEdit) {
+      correctionName = 'Status Correction';
     }
 
     final bool? confirmed = await Get.dialog<bool>(

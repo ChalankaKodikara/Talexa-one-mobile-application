@@ -1,682 +1,503 @@
-// ignore_for_file: prefer_const_constructors, depend_on_referenced_packages, use_super_parameters
-
 import 'package:corehris/modules/HRMS/main_screens/leaves/controller_/leave_req_con.dart';
-import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class LeaveRequestPage extends StatelessWidget {
-  final LeaveRequestController controller = Get.put(LeaveRequestController());
+/// Talexa leave request page — shares the minimalist Settings/Drawer language.
+/// All data mutations and API calls are delegated to LeaveRequestController.
+class LeaveRequestPage extends StatefulWidget {
+  const LeaveRequestPage({super.key, required this.selectedDates});
   final List<Map<String, dynamic>> selectedDates;
 
-  LeaveRequestPage({required this.selectedDates, Key? key}) : super(key: key) {
-    controller.initializeRequestedDates(selectedDates);
+  @override
+  State<LeaveRequestPage> createState() => _LeaveRequestPageState();
+}
+
+class _LeaveRequestPageState extends State<LeaveRequestPage> {
+  static const _blue = Color(0xFF1769E8);
+  static const _navy = Color(0xFF182237);
+  static const _muted = Color(0xFF89919D);
+  late final LeaveRequestController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.isRegistered<LeaveRequestController>()
+        ? Get.find<LeaveRequestController>()
+        : Get.put(LeaveRequestController());
+    controller.initializeRequestedDates(widget.selectedDates);
   }
 
-  Widget _buildSearchField(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
+  bool get _dark => Theme.of(context).brightness == Brightness.dark;
+  Color get _bg => _dark ? const Color(0xFF101623) : const Color(0xFFF5F6F8);
+  Color get _surface => _dark ? const Color(0xFF1B2638) : Colors.white;
+  Color get _ink => _dark ? Colors.white : _navy;
+  Color get _secondary => _dark ? Colors.white60 : _muted;
+  Color get _line => _dark ? Colors.white12 : const Color(0xFFECEFF3);
+  Color get _inputBg =>
+      _dark ? const Color(0xFF222F42) : const Color(0xFFF8FAFD);
 
-    final cardColor = theme.cardColor;
-    final softColor =
-        isDark ? const Color(0xFF182235) : const Color(0xFFF8FAFC);
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.white70 : Colors.black54;
+  Widget _heading(String title, String description) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w700, color: _ink)),
+          const SizedBox(height: 4),
+          Text(description,
+              style: TextStyle(fontSize: 12, height: 1.4, color: _secondary)),
+        ]),
+      );
 
-    final fieldBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.7)),
-    );
+  Widget _panel({required Widget child, EdgeInsets? padding}) => Container(
+        width: double.infinity,
+        padding: padding ?? const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: _surface, borderRadius: BorderRadius.circular(20)),
+        child: child,
+      );
 
-    final focusBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: cs.primary, width: 1.4),
-    );
+  Widget _selectedDatesPanel() => _panel(
+        child: Column(children: [
+          for (int i = 0; i < controller.requestedDates.length; i++) ...[
+            if (i > 0) Divider(height: 23, color: _line, thickness: 1),
+            Builder(builder: (context) {
+              final date = controller.requestedDates[i];
+              final half =
+                  date['is_half_day'] == 1 || date['is_half_day'] == '1';
+              final day =
+                  (date['request_day'] ?? date['date'] ?? '-').toString();
+              final type = (date['leave_type'] ?? '').toString();
+              return Row(children: [
+                Icon(Icons.calendar_today_outlined, color: _blue, size: 21),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(day,
+                          style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: _ink)),
+                      const SizedBox(height: 4),
+                      Text(
+                          [
+                            half ? 'Half day' : 'Full day',
+                            if (type.isNotEmpty) type
+                          ].join(' • '),
+                          style: TextStyle(fontSize: 11.5, color: _secondary)),
+                    ])),
+                Icon(Icons.check_circle_rounded, size: 19, color: _blue),
+              ]);
+            }),
+          ],
+          if (controller.requestedDates.isEmpty)
+            Text('No dates selected', style: TextStyle(color: _secondary)),
+        ]),
+      );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          style: TextStyle(color: primaryText),
-          decoration: InputDecoration(
-            labelText: "Covering Employee",
-            hintText: "Search by name, ID or designation",
-            prefixIcon: Icon(Icons.search_rounded, color: cs.primary),
-            filled: true,
-            fillColor: softColor,
-            border: fieldBorder,
-            enabledBorder: fieldBorder,
-            focusedBorder: focusBorder,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            labelStyle: TextStyle(
-              color: secondaryText,
-              fontWeight: FontWeight.w500,
-            ),
-            hintStyle: TextStyle(
-              color: secondaryText.withOpacity(0.8),
-            ),
-          ),
+  Widget _employeeSearch() =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Search employee',
+            style: TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w600, color: _ink)),
+        const SizedBox(height: 9),
+        TextField(
           onChanged: controller.onSearchChanged,
+          style: TextStyle(color: _ink, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Name, employee number or designation',
+            hintStyle: TextStyle(color: _secondary, fontSize: 12.5),
+            prefixIcon: Icon(Icons.search_rounded, size: 20, color: _secondary),
+            filled: true,
+            fillColor: _inputBg,
+            border: _outline(),
+            enabledBorder: _outline(),
+            focusedBorder: _outline(active: true),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 15, horizontal: 14),
+          ),
         ),
         Obx(() {
-          if (controller.searchQuery.value.length < 2) {
+          if (controller.searchQuery.value.trim().length < 2)
             return const SizedBox.shrink();
-          }
-
-          final shadowColor = Colors.black.withOpacity(
-            isDark ? 0.20 : 0.08,
-          );
-
           return Container(
-            margin: const EdgeInsets.only(top: 8),
-            constraints: const BoxConstraints(maxHeight: 260),
+            margin: const EdgeInsets.only(top: 12),
+            constraints: const BoxConstraints(maxHeight: 240),
             decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: theme.dividerColor.withOpacity(0.35),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: shadowColor,
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _line),
+              color: _inputBg,
             ),
             child: controller.isSearchingEmployees.value
-                ? Padding(
-                    padding: const EdgeInsets.all(18),
+                ? const Padding(
+                    padding: EdgeInsets.all(22),
                     child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: cs.primary,
-                      ),
-                    ),
-                  )
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: _blue)))
                 : controller.searchResults.isEmpty
                     ? Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Text(
-                          "No employees found",
-                          style: TextStyle(color: secondaryText),
-                        ),
-                      )
+                        padding: const EdgeInsets.all(17),
+                        child: Text('No employees found',
+                            style: TextStyle(color: _secondary)))
                     : ListView.separated(
-                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
                         itemCount: controller.searchResults.length,
-                        separatorBuilder: (_, __) => Divider(
-                          height: 1,
-                          color: theme.dividerColor.withOpacity(0.35),
-                        ),
-                        itemBuilder: (_, index) {
-                          final emp = controller.searchResults[index];
+                        separatorBuilder: (_, __) =>
+                            Divider(height: 1, color: _line),
+                        itemBuilder: (context, index) {
+                          final employee = controller.searchResults[index];
+                          final name =
+                              (employee['employee_fullname'] ?? 'Employee')
+                                  .toString();
+                          final number =
+                              (employee['employee_no'] ?? '-').toString();
                           return ListTile(
                             dense: true,
-                            leading: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: cs.primary.withOpacity(
-                                isDark ? 0.22 : 0.12,
-                              ),
-                              child: Text(
-                                "${emp['employee_fullname'] ?? 'U'}"
-                                    .substring(0, 1)
-                                    .toUpperCase(),
+                            title: Text(name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: cs.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              "${emp['employee_fullname']}",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: primaryText,
-                              ),
-                            ),
+                                    color: _ink,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600)),
                             subtitle: Text(
-                              "${emp['employee_no']} • ${emp['designation_name'] ?? ''}",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: secondaryText,
-                              ),
-                            ),
+                                '$number • ${employee['designation_name'] ?? ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: _secondary, fontSize: 11.5)),
+                            trailing: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: _blue,
+                                size: 21),
                             onTap: () {
                               FocusScope.of(context).unfocus();
-                              controller.addCoveringEmployee(emp);
+                              controller.addCoveringEmployee(employee);
                             },
                           );
                         },
                       ),
           );
         }),
-      ],
-    );
-  }
+      ]);
 
-  Widget _buildSelectedEmployees(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.white70 : Colors.black54;
-    final softColor =
-        isDark ? const Color(0xFF182235) : const Color(0xFFF8FAFC);
-
-    return Obx(() {
-      if (controller.selectedCoveringEmployees.isEmpty) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            "No covering employees selected",
-            style: TextStyle(color: secondaryText),
-          ),
-        );
-      }
-
-      return Column(
-        children: controller.selectedCoveringEmployees.map((emp) {
-          final empNo = emp['employee_no'];
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: softColor,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: theme.dividerColor.withOpacity(0.35),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: cs.primary.withOpacity(
-                        isDark ? 0.22 : 0.12,
-                      ),
-                      child: Text(
-                        "${emp['employee_fullname'] ?? 'U'}"
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: TextStyle(
-                          color: cs.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        "${emp['employee_fullname']}",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: primaryText,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded,
-                          color: Colors.redAccent),
-                      onPressed: () => controller.removeCoveringEmployee(empNo),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 52),
-                  child: Text(
-                    "$empNo • ${emp['designation_name'] ?? ''}",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: secondaryText,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    _timePicker(
-                      context,
-                      label: (emp['start_time'] ?? '').toString().isEmpty
-                          ? "Start Time"
-                          : emp['start_time'],
-                      onTap: () => _pickTime(context, empNo, isStart: true),
-                    ),
-                    const SizedBox(width: 12),
-                    _timePicker(
-                      context,
-                      label: (emp['end_time'] ?? '').toString().isEmpty
-                          ? "End Time"
-                          : emp['end_time'],
-                      onTap: () => _pickTime(context, empNo, isStart: false),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      );
-    });
-  }
-
-  Widget _timePicker(
-    BuildContext context, {
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
+  OutlineInputBorder _outline({bool active = false}) => OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF111827) : Colors.white,
-            border: Border.all(color: cs.primary.withOpacity(0.70)),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onBackground,
+        borderSide:
+            BorderSide(color: active ? _blue : _line, width: active ? 1.5 : 1),
+      );
+
+  Future<void> _pickTime(String employeeNo, {required bool start}) async {
+    final value =
+        await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (!mounted || value == null) return;
+    controller.setTime(employeeNo, isStart: start, time: value.format(context));
+  }
+
+  Widget _timeButton(String label, VoidCallback callback) => Expanded(
+        child: Material(
+          color: _inputBg,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: callback,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 13),
+              decoration: BoxDecoration(
+                  border: Border.all(color: _line),
+                  borderRadius: BorderRadius.circular(12)),
+              child:
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.access_time_rounded, size: 16, color: _blue),
+                const SizedBox(width: 6),
+                Flexible(
+                    child: Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _ink))),
+              ]),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
 
-  Future<void> _pickTime(
-    BuildContext context,
-    String empNo, {
-    required bool isStart,
-  }) async {
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (t != null) {
-      controller.setTime(empNo, isStart: isStart, time: t.format(context));
-    }
-  }
+  Widget _coveringEmployees() => Obx(() {
+        final employees = controller.selectedCoveringEmployees;
+        if (employees.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 17),
+            child: Row(children: [
+              Icon(Icons.info_outline_rounded, size: 17, color: _secondary),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text('No covering employees selected',
+                      style: TextStyle(fontSize: 12, color: _secondary))),
+            ]),
+          );
+        }
+        return Column(children: [
+          const SizedBox(height: 16),
+          for (int i = 0; i < employees.length; i++) ...[
+            Divider(height: 18, color: _line),
+            Builder(builder: (context) {
+              final employee = employees[i];
+              final id = (employee['employee_no'] ?? '').toString();
+              final name =
+                  (employee['employee_fullname'] ?? 'Employee').toString();
+              return Column(children: [
+                Row(children: [
+                  const Icon(Icons.person_outline_rounded,
+                      color: _blue, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: _ink,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 3),
+                        Text('$id • ${employee['designation_name'] ?? ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                TextStyle(color: _secondary, fontSize: 11.5)),
+                      ])),
+                  IconButton(
+                    tooltip: 'Remove employee',
+                    onPressed: () => controller.removeCoveringEmployee(id),
+                    icon: const Icon(Icons.close_rounded,
+                        color: Color(0xFFD64550), size: 19),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  _timeButton(
+                      (employee['start_time'] ?? '').toString().isEmpty
+                          ? 'Start time'
+                          : employee['start_time'].toString(),
+                      () => _pickTime(id, start: true)),
+                  const SizedBox(width: 10),
+                  _timeButton(
+                      (employee['end_time'] ?? '').toString().isEmpty
+                          ? 'End time'
+                          : employee['end_time'].toString(),
+                      () => _pickTime(id, start: false)),
+                ]),
+              ]);
+            }),
+          ],
+        ]);
+      });
+
+  Widget _attachmentPanel() => _panel(
+          child: Column(children: [
+        Material(
+          color: _inputBg,
+          borderRadius: BorderRadius.circular(15),
+          child: InkWell(
+            onTap: controller.pickFiles,
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: _line),
+              ),
+              child: Column(children: [
+                const Icon(Icons.cloud_upload_outlined, color: _blue, size: 28),
+                const SizedBox(height: 9),
+                Text('Choose supporting files',
+                    style: TextStyle(
+                        color: _ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 5),
+                Text('Tap to browse your device',
+                    style: TextStyle(color: _secondary, fontSize: 11.5)),
+              ]),
+            ),
+          ),
+        ),
+        Obx(() {
+          if (controller.attachedFiles.isEmpty) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Column(
+                children: controller.attachedFiles.map((file) {
+              final label = file.replaceAll('\\', '/').split('/').last;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(children: [
+                  const Icon(Icons.insert_drive_file_outlined,
+                      color: _blue, size: 18),
+                  const SizedBox(width: 9),
+                  Expanded(
+                      child: Text(label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: _ink, fontSize: 12.5))),
+                  IconButton(
+                    tooltip: 'Remove attachment',
+                    onPressed: () => controller.attachedFiles.remove(file),
+                    icon: const Icon(Icons.close_rounded,
+                        size: 18, color: Color(0xFFD64550)),
+                  ),
+                ]),
+              );
+            }).toList()),
+          );
+        }),
+      ]));
+
+  Widget _submitBar(double contentWidth) => SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 11, 18, 15),
+          decoration: BoxDecoration(
+              color: _surface, border: Border(top: BorderSide(color: _line))),
+          child: Center(
+              child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentWidth),
+            child: Obx(() {
+              final busy = controller.isSubmitting.value;
+              return SizedBox(
+                height: 54,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: busy
+                      ? null
+                      : () {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          controller
+                              .submitLeaveRequest(controller.username.value);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _blue,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: _blue.withOpacity(.45),
+                    elevation: 0,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: busy
+                      ? const SizedBox(
+                          width: 21,
+                          height: 21,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.4, color: Colors.white))
+                      : const Text('Submit Leave Request',
+                          style: TextStyle(
+                              fontSize: 14.5, fontWeight: FontWeight.w700)),
+                ),
+              );
+            }),
+          )),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final contentWidth = screenWidth >= 720 ? 640.0 : screenWidth;
-    final horizontalPadding = screenWidth < 360 ? 14.0 : 16.0;
-    final isDark = theme.brightness == Brightness.dark;
-
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.white70 : Colors.black54;
-    final cardColor = theme.cardColor;
-    final softColor =
-        isDark ? const Color(0xFF182235) : const Color(0xFFF8FAFC);
-
-    final fieldBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.7)),
-    );
-
-    final focusBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: cs.primary, width: 1.4),
-    );
-
+    final width = MediaQuery.sizeOf(context).width;
+    final contentWidth = width >= 720 ? 640.0 : width;
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: _bg,
       appBar: AppBar(
-        title: const Text('Leave Request'),
+        title: const Text('Leave Request',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
         centerTitle: true,
+        backgroundColor: _bg,
+        foregroundColor: _ink,
         elevation: 0,
-        backgroundColor:
-            theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
-        foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onBackground,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
+          top: false,
+          child: Column(children: [
+            Expanded(
+                child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                16,
-                horizontalPadding,
-                120,
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Column(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+              child: Center(
+                  child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
+                child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _sectionTitle(
-                        context,
-                        "Selected Dates",
-                        "Dates you are requesting leave for",
-                      ),
+                      Text('REVIEW YOUR REQUEST',
+                          style: TextStyle(
+                              color: _blue,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2)),
+                      const SizedBox(height: 8),
+                      Text('Almost there',
+                          style: TextStyle(
+                              color: _ink,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 5),
+                      Text('Review the details before submitting your leave.',
+                          style: TextStyle(color: _secondary, fontSize: 12.5)),
+                      const SizedBox(height: 27),
+                      _heading('Selected Dates',
+                          'Dates included in your leave request'),
+                      _selectedDatesPanel(),
+                      const SizedBox(height: 25),
+                      _heading('Covering Employees',
+                          'Who will cover your responsibilities?'),
+                      _panel(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            _employeeSearch(),
+                            _coveringEmployees(),
+                          ])),
+                      const SizedBox(height: 25),
+                      _heading('Reason for Leave', 'Add a short explanation'),
+                      _panel(
+                          child: TextFormField(
+                        onChanged: (value) => controller.reason.value = value,
+                        maxLines: 4,
+                        minLines: 3,
+                        style: TextStyle(fontSize: 13.5, color: _ink),
+                        decoration: InputDecoration(
+                          hintText: 'Tell us why you need leave...',
+                          hintStyle:
+                              TextStyle(fontSize: 12.5, color: _secondary),
+                          filled: true,
+                          fillColor: _inputBg,
+                          border: _outline(),
+                          enabledBorder: _outline(),
+                          focusedBorder: _outline(active: true),
+                          contentPadding: const EdgeInsets.all(14),
+                        ),
+                      )),
+                      const SizedBox(height: 25),
+                      _heading(
+                          'Attachments', 'Add supporting documents if needed'),
+                      _attachmentPanel(),
                       const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withOpacity(isDark ? 0.18 : 0.05),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: controller.requestedDates
-                              .map(
-                                (d) => Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: softColor,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color:
-                                          theme.dividerColor.withOpacity(0.35),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor: cs.primary.withOpacity(
-                                          isDark ? 0.22 : 0.12,
-                                        ),
-                                        child: Icon(
-                                          Icons.calendar_month_rounded,
-                                          color: cs.primary,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              (d['request_day'] ?? '')
-                                                  .toString(),
-                                              style: TextStyle(
-                                                color: primaryText,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              d['is_half_day'] == 1
-                                                  ? "Half Day"
-                                                  : "Full Day",
-                                              style: TextStyle(
-                                                color: secondaryText,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      _sectionTitle(
-                        context,
-                        "Covering Employees",
-                        "Select employees who will cover your work",
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSearchField(context),
-                      const SizedBox(height: 10),
-                      _buildSelectedEmployees(context),
-                      const SizedBox(height: 22),
-                      _sectionTitle(
-                        context,
-                        "Reason for Leave",
-                        "Provide a short reason for this request",
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withOpacity(isDark ? 0.18 : 0.05),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: TextFormField(
-                          style: TextStyle(color: primaryText),
-                          onChanged: (v) => controller.reason.value = v,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            hintText: "Ex: Personal work, medical, etc.",
-                            filled: true,
-                            fillColor: softColor,
-                            border: fieldBorder,
-                            enabledBorder: fieldBorder,
-                            focusedBorder: focusBorder,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
-                            hintStyle: TextStyle(
-                              color: secondaryText.withOpacity(0.8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      _sectionTitle(
-                        context,
-                        "Attachments",
-                        "Upload supporting files if required",
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withOpacity(isDark ? 0.18 : 0.05),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            DottedBorder(
-                              child: InkWell(
-                                onTap: controller.pickFiles,
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  height: 90,
-                                  width: double.infinity,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: softColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.attach_file_rounded,
-                                        color: cs.primary,
-                                        size: 24,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "Browse Files",
-                                        style: TextStyle(
-                                          color: cs.primary,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Obx(
-                              () => Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: controller.attachedFiles
-                                    .map(
-                                      (file) => Chip(
-                                        label: Text(
-                                          file.split("/").last,
-                                          style: TextStyle(color: primaryText),
-                                        ),
-                                        backgroundColor: cs.primary.withOpacity(
-                                          isDark ? 0.22 : 0.12,
-                                        ),
-                                        deleteIconColor:
-                                            primaryText.withOpacity(0.75),
-                                        onDeleted: () => controller
-                                            .attachedFiles
-                                            .remove(file),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 10,
-              left: horizontalPadding,
-              right: horizontalPadding,
-              child: Obx(
-                () => Align(
-                  alignment: Alignment.center,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: contentWidth),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        disabledBackgroundColor: cs.primary.withOpacity(0.4),
-                        minimumSize: const Size(double.infinity, 56),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: controller.isSubmitting.value
-                          ? null
-                          : () => controller.submitLeaveRequest(
-                                controller.username.value,
-                              ),
-                      child: controller.isSubmitting.value
-                          ? SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: cs.onPrimary,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : Text(
-                              "Submit Request",
+                      Center(
+                          child: Text(
+                              'Your request will follow the approval workflow.',
                               style: TextStyle(
-                                fontSize: 16,
-                                color: cs.onPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(
-    BuildContext context,
-    String title,
-    String subtitle,
-  ) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white70 : Colors.black54,
-            ),
-          ),
-        ],
-      ),
+                                  color: _secondary, fontSize: 11.5))),
+                    ]),
+              )),
+            )),
+            _submitBar(contentWidth),
+          ])),
     );
   }
 }

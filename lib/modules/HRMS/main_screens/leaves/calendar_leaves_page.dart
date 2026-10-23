@@ -284,7 +284,7 @@ class _CalendarPanel extends StatelessWidget {
                 color:
                     dark ? const Color(0xFF2A303B) : const Color(0xFFF0F2F6)),
           ),
-          child: Obx(() => _ThemedCalendar(controller: controller)),
+          child: _ThemedCalendar(controller: controller),
         ),
       ],
     );
@@ -499,37 +499,44 @@ class _ThemedCalendar extends StatelessWidget {
     final text = dark ? const Color(0xFFF5F7FB) : const Color(0xFF1D2939);
     final muted = dark ? const Color(0xFF8D95A5) : const Color(0xFF98A2B3);
     final width = MediaQuery.of(context).size.width;
-    return TableCalendar(
-      key: const ValueKey('talexa_leave_month_grid'),
-      focusedDay: controller.focusedDay.value,
-      firstDay: DateTime(DateTime.now().year - 1),
-      lastDay: DateTime(DateTime.now().year + 1),
-      calendarFormat: CalendarFormat.month,
-      startingDayOfWeek: StartingDayOfWeek.sunday,
-      sixWeekMonthsEnforced: false,
-      rowHeight: width < 360 ? 51 : 57,
-      daysOfWeekHeight: 32,
-      availableGestures: AvailableGestures.horizontalSwipe,
-      selectedDayPredicate: controller.isSelected,
-      onDaySelected: (day, _) => controller.onDayTapped(day),
-      onPageChanged: (day) => controller.focusedDay.value = day,
-      headerVisible: false,
-      calendarStyle: const CalendarStyle(outsideDaysVisible: false),
-      daysOfWeekStyle: DaysOfWeekStyle(
-        weekdayStyle:
-            TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w700),
-        weekendStyle:
-            TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w700),
-      ),
-      calendarBuilders: CalendarBuilders(
-        defaultBuilder: (context, day, focusedDay) => _dayCell(context, day),
-        todayBuilder: (context, day, focusedDay) =>
-            _dayCell(context, day, today: true),
-        selectedBuilder: (context, day, focusedDay) =>
-            _dayCell(context, day, selected: true),
-        outsideBuilder: (context, day, focusedDay) => const SizedBox.shrink(),
-      ),
-    );
+    // Read reactive values in this builder, not in the parent widget constructor.
+    // GetX tracks the month and selected days here and rebuilds the calendar.
+    return Obx(() {
+      final focusedDay = controller.focusedDay.value;
+      final selectedDays = controller.selectedDates.toList();
+      return TableCalendar(
+        key: const ValueKey('talexa_leave_month_grid'),
+        focusedDay: focusedDay,
+        firstDay: DateTime(DateTime.now().year - 1),
+        lastDay: DateTime(DateTime.now().year + 1),
+        calendarFormat: CalendarFormat.month,
+        startingDayOfWeek: StartingDayOfWeek.sunday,
+        sixWeekMonthsEnforced: false,
+        rowHeight: width < 360 ? 51 : 57,
+        daysOfWeekHeight: 32,
+        availableGestures: AvailableGestures.horizontalSwipe,
+        selectedDayPredicate: (day) => selectedDays
+            .any((selected) => controller.isSameDate(selected, day)),
+        onDaySelected: (day, _) => controller.onDayTapped(day),
+        onPageChanged: (day) => controller.focusedDay.value = day,
+        headerVisible: false,
+        calendarStyle: const CalendarStyle(outsideDaysVisible: false),
+        daysOfWeekStyle: DaysOfWeekStyle(
+          weekdayStyle: TextStyle(
+              color: muted, fontSize: 10, fontWeight: FontWeight.w700),
+          weekendStyle: TextStyle(
+              color: muted, fontSize: 10, fontWeight: FontWeight.w700),
+        ),
+        calendarBuilders: CalendarBuilders(
+          defaultBuilder: (context, day, focusedDay) => _dayCell(context, day),
+          todayBuilder: (context, day, focusedDay) =>
+              _dayCell(context, day, today: true),
+          selectedBuilder: (context, day, focusedDay) =>
+              _dayCell(context, day, selected: true),
+          outsideBuilder: (context, day, focusedDay) => const SizedBox.shrink(),
+        ),
+      );
+    });
   }
 
   Widget _dayCell(BuildContext context, DateTime date,
@@ -902,11 +909,15 @@ class _InfoChip extends StatelessWidget {
 
 ================================================================ */
 
+/* ================================================================
+
+                BOTTOM SHEET
+
+=============================================================== */
+
 class _LeaveTypeBottomSheet extends StatefulWidget {
   final DateTime date;
-
   final List<model.Leave> categories;
-
   final Function(model.Leave, HalfDayType?) onConfirm;
 
   const _LeaveTypeBottomSheet({
@@ -921,38 +932,44 @@ class _LeaveTypeBottomSheet extends StatefulWidget {
 
 class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
   model.Leave? selected;
-
   HalfDayType? halfDayType;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     final cs = theme.colorScheme;
-
     final isDark = theme.brightness == Brightness.dark;
 
     final size = MediaQuery.of(context).size;
-
     final maxHeight = size.height * 0.88;
+
+    final bg = isDark ? const Color(0xFF171C24) : Colors.white;
+    final sectionBg =
+        isDark ? const Color(0xFF1F2630) : const Color(0xFFF8FAFD);
+    final text = isDark ? Colors.white : const Color(0xFF182237);
+    final muted = isDark ? const Color(0xFF9AA4B2) : const Color(0xFF7E899B);
+    final border = isDark ? const Color(0xFF2B3442) : const Color(0xFFE8EDF4);
 
     return SafeArea(
       top: false,
       child: Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 640, maxHeight: maxHeight),
+          constraints: BoxConstraints(
+            maxWidth: 640,
+            maxHeight: maxHeight,
+          ),
           child: Container(
             decoration: BoxDecoration(
-              color: theme.cardColor,
+              color: bg,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+                top: Radius.circular(28),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.45 : 0.16),
-                  blurRadius: 28,
-                  offset: const Offset(0, -12),
+                  color: Colors.black.withOpacity(isDark ? 0.45 : 0.12),
+                  blurRadius: 26,
+                  offset: const Offset(0, -10),
                 ),
               ],
             ),
@@ -967,87 +984,113 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
                       children: [
                         Center(
                           child: Container(
-                            width: 42,
-                            height: 4,
-                            margin: const EdgeInsets.only(bottom: 16),
+                            width: 46,
+                            height: 5,
+                            margin: const EdgeInsets.only(bottom: 18),
                             decoration: BoxDecoration(
-                              color: cs.onBackground.withOpacity(0.22),
-                              borderRadius: BorderRadius.circular(4),
+                              color: isDark
+                                  ? Colors.white24
+                                  : const Color(0xFFD5DBE5),
+                              borderRadius: BorderRadius.circular(99),
                             ),
                           ),
                         ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: cs.primary.withOpacity(
-                                  isDark ? 0.24 : 0.10,
+
+                        // Header
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: sectionBg,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color:
+                                      const Color(0xFF1769E8).withOpacity(0.10),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                borderRadius: BorderRadius.circular(15),
+                                child: const Icon(
+                                  Icons.calendar_today_rounded,
+                                  color: Color(0xFF1769E8),
+                                  size: 22,
+                                ),
                               ),
-                              child: Icon(
-                                Icons.event_note_rounded,
-                                color: cs.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Apply Leave",
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: cs.onBackground,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Apply Leave",
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: text,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    DateFormat('EEEE, d MMM yyyy')
-                                        .format(widget.date),
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: cs.onBackground.withOpacity(0.62),
-                                      height: 1.25,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      DateFormat('EEEE, d MMM yyyy')
+                                          .format(widget.date),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: muted,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+
                         const SizedBox(height: 22),
+
                         Text(
                           "Leave Type",
-                          style: theme.textTheme.bodyLarge?.copyWith(
+                          style: TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: cs.onBackground,
+                            color: text,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+
                         if (widget.categories.isEmpty)
-                          _NoLeaveTypesCard(colorScheme: cs)
+                          _NoLeaveTypesCard(
+                            text: text,
+                            muted: muted,
+                            bg: sectionBg,
+                            border: border,
+                          )
                         else
                           ...widget.categories.map(_leaveTypeOption),
-                        const SizedBox(height: 16),
+
+                        const SizedBox(height: 20),
+
                         Text(
                           "Half Day (Optional)",
-                          style: theme.textTheme.bodyLarge?.copyWith(
+                          style: TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: cs.onBackground,
+                            color: text,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+
                         Row(
                           children: [
                             _HalfDayCard(
                               title: "Morning",
+                              subtitle: "First half",
                               icon: Icons.wb_sunny_outlined,
-                              color: Colors.orange,
+                              color: const Color(0xFFF59E0B),
                               active: halfDayType == HalfDayType.morning,
                               onTap: () => setState(
                                 () => halfDayType =
@@ -1059,8 +1102,9 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
                             const SizedBox(width: 12),
                             _HalfDayCard(
                               title: "Evening",
-                              icon: Icons.nights_stay_outlined,
-                              color: Colors.indigo,
+                              subtitle: "Second half",
+                              icon: Icons.nightlight_round,
+                              color: const Color(0xFF4F46E5),
                               active: halfDayType == HalfDayType.evening,
                               onTap: () => setState(
                                 () => halfDayType =
@@ -1076,13 +1120,11 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
                   decoration: BoxDecoration(
-                    color: theme.cardColor,
+                    color: bg,
                     border: Border(
-                      top: BorderSide(
-                        color: theme.dividerColor.withOpacity(0.25),
-                      ),
+                      top: BorderSide(color: border),
                     ),
                   ),
                   child: ElevatedButton(
@@ -1091,11 +1133,12 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
                         : () => widget.onConfirm(selected!, halfDayType),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: cs.primary,
-                      disabledBackgroundColor: cs.primary.withOpacity(0.34),
-                      minimumSize: const Size(double.infinity, 54),
+                      disabledBackgroundColor: cs.primary.withOpacity(0.32),
+                      minimumSize: const Size(double.infinity, 58),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(999), // fully rounded
                       ),
                     ),
                     child: Text(
@@ -1103,6 +1146,7 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
                       style: TextStyle(
                         color: cs.onPrimary,
                         fontWeight: FontWeight.w800,
+                        fontSize: 15.5,
                       ),
                     ),
                   ),
@@ -1121,86 +1165,112 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
     return Builder(
       builder: (context) {
         final theme = Theme.of(context);
-
-        final cs = theme.colorScheme;
-
         final isDark = theme.brightness == Brightness.dark;
 
-        final border =
-            active ? cs.primary : theme.dividerColor.withOpacity(0.35);
+        final text = isDark ? Colors.white : const Color(0xFF182237);
+        final muted =
+            isDark ? const Color(0xFF9AA4B2) : const Color(0xFF7E899B);
 
         final bg = active
-            ? cs.primary.withOpacity(isDark ? 0.20 : 0.08)
-            : theme.scaffoldBackgroundColor.withOpacity(isDark ? 0.50 : 0.75);
+            ? const Color(0xFF1769E8).withOpacity(isDark ? 0.18 : 0.08)
+            : isDark
+                ? const Color(0xFF1F2630)
+                : const Color(0xFFF8FAFD);
+
+        final border = active
+            ? const Color(0xFF1769E8)
+            : isDark
+                ? const Color(0xFF2B3442)
+                : const Color(0xFFE8EDF4);
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () => setState(() => selected = leave),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: border, width: active ? 1.4 : 1),
                   color: bg,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: border,
+                    width: active ? 1.5 : 1,
+                  ),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 38,
-                      height: 38,
+                      width: 42,
+                      height: 42,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: active
-                            ? cs.primary.withOpacity(isDark ? 0.24 : 0.12)
-                            : cs.onBackground.withOpacity(isDark ? 0.10 : 0.05),
-                        borderRadius: BorderRadius.circular(13),
+                            ? const Color(0xFF1769E8).withOpacity(0.12)
+                            : (isDark ? Colors.white10 : Colors.white),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
                         Icons.work_outline_rounded,
                         size: 20,
-                        color: active
-                            ? cs.primary
-                            : cs.onBackground.withOpacity(0.54),
+                        color: active ? const Color(0xFF1769E8) : muted,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 13),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            leave.categoryName,
+                            leave.categoryName.toUpperCase(),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onBackground,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: text,
                               height: 1.2,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 5),
                           Text(
                             "Available ${leave.actualLeaveCounts} of ${leave.leaveCount}",
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              color: cs.onBackground.withOpacity(0.62),
+                            style: TextStyle(
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w600,
+                              color: muted,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 150),
-                      opacity: active ? 1 : 0,
-                      child:
-                          Icon(Icons.check_circle_rounded, color: cs.primary),
-                    )
+                    const SizedBox(width: 8),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active
+                            ? const Color(0xFF2F8FFF)
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: active
+                              ? const Color(0xFF2F8FFF)
+                              : muted.withOpacity(0.35),
+                        ),
+                      ),
+                      child: active
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
                   ],
                 ),
               ),
@@ -1213,27 +1283,43 @@ class _LeaveTypeBottomSheetState extends State<_LeaveTypeBottomSheet> {
 }
 
 class _NoLeaveTypesCard extends StatelessWidget {
-  final ColorScheme colorScheme;
+  final Color text;
+  final Color muted;
+  final Color bg;
+  final Color border;
 
-  const _NoLeaveTypesCard({required this.colorScheme});
+  const _NoLeaveTypesCard({
+    required this.text,
+    required this.muted,
+    required this.bg,
+    required this.border,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.28)),
+        color: bg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: border),
       ),
-      child: Text(
-        'No leave types available right now.',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onBackground.withOpacity(0.65),
-        ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, color: muted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'No leave types available right now.',
+              style: TextStyle(
+                fontSize: 13,
+                color: text,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1241,17 +1327,15 @@ class _NoLeaveTypesCard extends StatelessWidget {
 
 class _HalfDayCard extends StatelessWidget {
   final String title;
-
+  final String subtitle;
   final IconData icon;
-
   final Color color;
-
   final bool active;
-
   final VoidCallback onTap;
 
   const _HalfDayCard({
     required this.title,
+    required this.subtitle,
     required this.icon,
     required this.color,
     required this.active,
@@ -1261,40 +1345,54 @@ class _HalfDayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    final cs = theme.colorScheme;
-
-    final border = active ? color : theme.dividerColor.withOpacity(0.6);
-
-    final bg = active
-        ? color.withOpacity(theme.brightness == Brightness.dark ? 0.25 : 0.15)
-        : theme.cardColor;
-
-    final fg = active ? color : cs.onBackground.withOpacity(0.55);
+    final isDark = theme.brightness == Brightness.dark;
+    final text = isDark ? Colors.white : const Color(0xFF182237);
+    final muted = isDark ? const Color(0xFF9AA4B2) : const Color(0xFF7E899B);
 
     return Expanded(
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: border, width: active ? 1.5 : 1),
-              color: bg,
+              color: active
+                  ? color.withOpacity(isDark ? 0.22 : 0.10)
+                  : (isDark
+                      ? const Color(0xFF1F2630)
+                      : const Color(0xFFF8FAFD)),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: active
+                    ? color
+                    : (isDark
+                        ? const Color(0xFF2B3442)
+                        : const Color(0xFFE8EDF4)),
+                width: active ? 1.4 : 1,
+              ),
             ),
             child: Column(
               children: [
-                Icon(icon, color: fg),
-                const SizedBox(height: 6),
+                Icon(icon, color: active ? color : muted, size: 22),
+                const SizedBox(height: 8),
                 Text(
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: fg,
+                    fontSize: 14,
+                    color: active ? color : text,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: muted,
                   ),
                 ),
               ],

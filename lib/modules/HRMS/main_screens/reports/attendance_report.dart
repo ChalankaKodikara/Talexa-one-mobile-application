@@ -5,6 +5,7 @@ import 'package:corehris/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:corehris/modules/HRMS/main_screens/attendance/pages/attendance_adjustment_picker.dart';
 
 class AttendanceReportScreen extends StatelessWidget {
   AttendanceReportScreen({super.key});
@@ -408,46 +409,144 @@ class AttendanceReportScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
+      builder: (sheetContext) {
         return Container(
-          margin: const EdgeInsets.only(top: 38),
+          margin: const EdgeInsets.only(top: 26),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF111827) : Colors.white,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(28),
-            ),
+            color: isDark ? const Color(0xFF111827) : const Color(0xFFF9FBFF),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           ),
           child: SafeArea(
             top: false,
             child: DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.88,
-              minChildSize: 0.55,
-              maxChildSize: 0.96,
+              initialChildSize: 0.90,
+              minChildSize: 0.58,
+              maxChildSize: 0.97,
               builder: (context, scrollController) {
                 return SingleChildScrollView(
                   controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Center(
                         child: Container(
-                          width: 52,
+                          width: 48,
                           height: 5,
                           decoration: BoxDecoration(
                             color: isDark
                                 ? Colors.white.withOpacity(0.18)
-                                : Colors.black.withOpacity(0.12),
+                                : const Color(0xFFD8DEE8),
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                       ),
                       const SizedBox(height: 18),
-                      _buildDetailsHeader(
-                        context,
-                        record: record,
-                        statusData: statusData,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF172033) : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isDark ? Colors.white10 : const Color(0xFFE9EEF5),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailsHeader(
+                              context,
+                              record: record,
+                              statusData: statusData,
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF7FAFF),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: isDark ? Colors.white10 : const Color(0xFFE5ECF6),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1769E8).withOpacity(0.10),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit_calendar_outlined,
+                                      size: 18,
+                                      color: Color(0xFF1769E8),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Need a correction?',
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Submit an attendance adjustment request for this date. The request stays pending until admin approval.',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.72),
+                                            height: 1.45,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1769E8),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: const StadiumBorder(),
+                                ),
+                                icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                                label: const Text(
+                                  'Request Attendance Adjustment',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () async {
+                                  Navigator.of(sheetContext).pop();
+                                  final raw = (record['date'] ?? record['work_date_local'])?.toString();
+                                  final date = raw == null ? null : DateTime.tryParse(raw);
+                                  if (date == null || !context.mounted) return;
+                                  final changed = await AttendanceAdjustmentPicker.open(
+                                    context: context,
+                                    date: date,
+                                    attendance: record,
+                                    employeeNo: controller.username.value,
+                                    employeeName: controller.employeeName.value,
+                                  );
+                                  if (changed) await controller.refreshAttendance();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 22),
                       _sectionTitle(context, 'Time Summary'),
@@ -489,9 +588,7 @@ class AttendanceReportScreen extends StatelessWidget {
                             context,
                             icon: Icons.directions_run_rounded,
                             title: 'Early Departure',
-                            value: _formatMinutes(
-                              record['early_departure_minutes'],
-                            ),
+                            value: _formatMinutes(record['early_departure_minutes']),
                           ),
                           _divider(context),
                           _detailRow(
@@ -558,30 +655,21 @@ class AttendanceReportScreen extends StatelessWidget {
                             context,
                             icon: Icons.verified_user_rounded,
                             title: 'Overall Authorization',
-                            value: _safeText(
-                              record['authorization_status'],
-                              fallback: 'Not available',
-                            ),
+                            value: _safeText(record['authorization_status'], fallback: 'Not available'),
                           ),
                           _divider(context),
                           _detailRow(
                             context,
                             icon: Icons.login_rounded,
                             title: 'Check In Authorization',
-                            value: _safeText(
-                              record['checkIN_authorization_status'],
-                              fallback: 'Not available',
-                            ),
+                            value: _safeText(record['checkIN_authorization_status'], fallback: 'Not available'),
                           ),
                           _divider(context),
                           _detailRow(
                             context,
                             icon: Icons.logout_rounded,
                             title: 'Check Out Authorization',
-                            value: _safeText(
-                              record['checkOUT_authorization_status'],
-                              fallback: 'Not available',
-                            ),
+                            value: _safeText(record['checkOUT_authorization_status'], fallback: 'Not available'),
                           ),
                           _divider(context),
                           _detailBooleanRow(
@@ -596,8 +684,7 @@ class AttendanceReportScreen extends StatelessWidget {
                               context,
                               icon: Icons.tag_rounded,
                               title: 'Authorized Location ID',
-                              value:
-                                  record['authorized_location_id'].toString(),
+                              value: record['authorized_location_id'].toString(),
                             ),
                           ],
                         ],
@@ -612,26 +699,16 @@ class AttendanceReportScreen extends StatelessWidget {
                             context,
                             icon: Icons.login_rounded,
                             title: 'Check In Address',
-                            value: _safeText(
-                              record['check_in_address'],
-                              fallback: 'Address unavailable',
-                            ),
-                            authorizationStatus: _safeText(
-                              record['check_in_address_authorized_status'],
-                            ),
+                            value: _safeText(record['check_in_address'], fallback: 'Address unavailable'),
+                            authorizationStatus: _safeText(record['check_in_address_authorized_status']),
                           ),
                           _divider(context),
                           _addressBlock(
                             context,
                             icon: Icons.logout_rounded,
                             title: 'Check Out Address',
-                            value: _safeText(
-                              record['check_out_address'],
-                              fallback: 'Address unavailable',
-                            ),
-                            authorizationStatus: _safeText(
-                              record['check_out_address_authorized_status'],
-                            ),
+                            value: _safeText(record['check_out_address'], fallback: 'Address unavailable'),
+                            authorizationStatus: _safeText(record['check_out_address_authorized_status']),
                           ),
                         ],
                       ),
@@ -685,9 +762,10 @@ class AttendanceReportScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _formatDate(record['date']),
+                _formatDate(record['date'] ?? record['work_date_local']),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
                 ),
               ),
               const SizedBox(height: 4),
@@ -697,9 +775,10 @@ class AttendanceReportScreen extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.textTheme.bodySmall?.color?.withOpacity(0.68),
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: 9),
+              const SizedBox(height: 10),
               _StatusChip(
                 label: statusData.label,
                 foregroundColor: statusData.foregroundColor,
@@ -1337,205 +1416,170 @@ class _AttendanceRecordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final dark = theme.brightness == Brightness.dark;
+    final ink = dark ? const Color(0xFFF4F7FC) : const Color(0xFF182237);
+    final muted = dark ? const Color(0xFF98A6BC) : const Color(0xFF89919D);
+    final border = dark ? const Color(0xFF303D50) : const Color(0xFFE7EDF5);
 
     final status = AttendanceReportScreen._safeText(
-      record['status'],
-      fallback: 'No attendance',
+      record['status'], fallback: 'No attendance',
+    );
+    final statusData = AttendanceReportScreen._statusData(status);
+    final checkIn = AttendanceReportScreen._formatTime(record['check_in_time']);
+    final checkOut = AttendanceReportScreen._formatTime(record['check_out_time']);
+    final worked = AttendanceReportScreen._formatMinutes(record['worked_minutes']);
+    final missingIn = AttendanceReportScreen._toNullableBool(
+          record['is_missing_checkin']) ?? false;
+    final missingOut = AttendanceReportScreen._toNullableBool(
+          record['is_missing_checkout']) ?? false;
+    final mixed = AttendanceReportScreen._toNullableBool(
+          record['is_mixed_source']) ?? false;
+
+    // Date is intentionally outside the card, matching Leave Requests.
+    final rawDate = AttendanceReportScreen._safeText(record['date'], fallback: '');
+    final parsedDate = DateTime.tryParse(rawDate);
+    final day = parsedDate == null ? '--' : DateFormat('dd').format(parsedDate);
+    final month = parsedDate == null ? '---' : DateFormat('MMM').format(parsedDate).toUpperCase();
+    final year = parsedDate == null ? '' : DateFormat('yyyy').format(parsedDate);
+
+    final tint = statusData.foregroundColor;
+    final cardColor = Color.alphaBlend(
+      tint.withOpacity(dark ? 0.13 : 0.095),
+      dark ? const Color(0xFF1B2638) : Colors.white,
     );
 
-    final statusData = AttendanceReportScreen._statusData(status);
-
-    final checkInTime =
-        AttendanceReportScreen._formatTime(record['check_in_time']);
-
-    final checkOutTime =
-        AttendanceReportScreen._formatTime(record['check_out_time']);
-
-    final workedTime =
-        AttendanceReportScreen._formatMinutes(record['worked_minutes']);
-
-    final missingCheckIn =
-        AttendanceReportScreen._toNullableBool(record['is_missing_checkin']) ??
-            false;
-
-    final missingCheckOut =
-        AttendanceReportScreen._toNullableBool(record['is_missing_checkout']) ??
-            false;
-
-    final mixedSource =
-        AttendanceReportScreen._toNullableBool(record['is_mixed_source']) ??
-            false;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.06)
-                    : const Color(0xFFE2E8F0),
-              ),
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: const Color(0xFF0F172A).withOpacity(0.035),
-                        blurRadius: 14,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: statusData.backgroundColor,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        statusData.icon,
-                        color: statusData.foregroundColor,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            AttendanceReportScreen._formatShortDate(
-                              record['date'],
-                            ),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Wrap(
-                            spacing: 7,
-                            runSpacing: 7,
-                            children: [
-                              _StatusChip(
-                                label: statusData.label,
-                                foregroundColor: statusData.foregroundColor,
-                                backgroundColor: statusData.backgroundColor,
-                              ),
-                              if (mixedSource)
-                                const _StatusChip(
-                                  label: 'Mixed Source',
-                                  foregroundColor: Color(0xFF7C3AED),
-                                  backgroundColor: Color(0xFFEDE9FE),
-                                ),
-                              if (missingCheckIn || missingCheckOut)
-                                const _StatusChip(
-                                  label: 'Missing Punch',
-                                  foregroundColor: Color(0xFFDC2626),
-                                  backgroundColor: Color(0xFFFEE2E2),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 16,
-                      color:
-                          theme.textTheme.bodySmall?.color?.withOpacity(0.38),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TimeBox(
-                        title: 'Check In',
-                        value: checkInTime,
-                        icon: Icons.login_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _TimeBox(
-                        title: 'Check Out',
-                        value: checkOutTime,
-                        icon: Icons.logout_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _TimeBox(
-                        title: 'Worked',
-                        value: workedTime,
-                        icon: Icons.timelapse_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-                if (_hasAdditionalInformation(record)) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      if (_hasText(record['checkIN_source']))
-                        Expanded(
-                          child: _SourceLabel(
-                            icon: Icons.input_rounded,
-                            value: AttendanceReportScreen._safeText(
-                              record['checkIN_source'],
-                            ),
-                          ),
-                        ),
-                      if (_hasText(record['checkIN_source']) &&
-                          _hasText(record['authorization_status']))
-                        const SizedBox(width: 8),
-                      if (_hasText(record['authorization_status']))
-                        Expanded(
-                          child: _AuthorizationChip(
-                            status: AttendanceReportScreen._safeText(
-                              record['authorization_status'],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 49,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: Column(
+                children: [
+                  Text(day,
+                      style: TextStyle(color: ink, fontSize: 21,
+                          height: 1.05, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(month,
+                      style: TextStyle(color: muted, fontSize: 10,
+                          letterSpacing: 0.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(year,
+                      style: TextStyle(color: muted, fontSize: 10,
+                          fontWeight: FontWeight.w500)),
                 ],
-              ],
+              ),
             ),
           ),
-        ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Material(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(19),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(13, 13, 12, 13),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(19),
+                    border: Border.all(color: tint.withOpacity(dark ? 0.20 : 0.10)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 35,
+                            height: 35,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: tint.withOpacity(dark ? 0.20 : 0.14),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(statusData.icon, color: tint, size: 19),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(statusData.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: ink, fontSize: 13,
+                                        fontWeight: FontWeight.w800)),
+                                const SizedBox(height: 3),
+                                Text('Attendance status',
+                                    style: TextStyle(color: muted, fontSize: 10.5)),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right_rounded, size: 19, color: muted),
+                        ],
+                      ),
+                      if (mixed || missingIn || missingOut) ...[
+                        const SizedBox(height: 9),
+                        Wrap(
+                          spacing: 5,
+                          runSpacing: 5,
+                          children: [
+                            if (mixed)
+                              const _StatusChip(
+                                label: 'Mixed Source',
+                                foregroundColor: Color(0xFF7C3AED),
+                                backgroundColor: Color(0xFFEDE9FE),
+                              ),
+                            if (missingIn || missingOut)
+                              const _StatusChip(
+                                label: 'Missing Punch',
+                                foregroundColor: Color(0xFFDC2626),
+                                backgroundColor: Color(0xFFFEE2E2),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 11),
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: dark
+                              ? const Color(0xFF202B3B)
+                              : Colors.white.withOpacity(0.83),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(child: _TimeBox(
+                              title: 'Check In', value: checkIn,
+                              icon: Icons.login_rounded,
+                            )),
+                            Container(height: 28, width: 1, color: border),
+                            Expanded(child: _TimeBox(
+                              title: 'Check Out', value: checkOut,
+                              icon: Icons.logout_rounded,
+                            )),
+                            Container(height: 28, width: 1, color: border),
+                            Expanded(child: _TimeBox(
+                              title: 'Worked', value: worked,
+                              icon: Icons.schedule_rounded,
+                            )),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
-  }
-
-  bool _hasAdditionalInformation(Map<String, dynamic> record) {
-    return _hasText(record['checkIN_source']) ||
-        _hasText(record['authorization_status']);
-  }
-
-  bool _hasText(dynamic value) {
-    if (value == null) {
-      return false;
-    }
-
-    final text = value.toString().trim();
-
-    return text.isNotEmpty && text.toLowerCase() != 'null';
   }
 }
 
@@ -1766,56 +1810,27 @@ class _TimeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final muted = dark ? const Color(0xFF98A6BC) : const Color(0xFF89919D);
+    final ink = dark ? Colors.white : const Color(0xFF182237);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color:
-            isDark ? Colors.white.withOpacity(0.035) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color:
-              isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: AppColors.primary2,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: muted, fontSize: 9.5,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 5),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-            ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value,
+                maxLines: 1,
+                style: TextStyle(color: ink, fontSize: 11.5,
+                    fontWeight: FontWeight.w800)),
           ),
         ],
       ),

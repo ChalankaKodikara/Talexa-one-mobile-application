@@ -4,13 +4,7 @@ import 'package:corehris/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-enum AppAlertType {
-  info,
-  success,
-  warning,
-  error,
-  confirm,
-}
+enum AppAlertType { info, success, warning, error, confirm }
 
 class AppAlertAction {
   const AppAlertAction({
@@ -26,9 +20,13 @@ class AppAlertAction {
   final bool isDestructive;
 }
 
+/// Shared Talexa dialogs and floating notifications.
+/// Existing show(), confirm(), toast(), and detail() call sites remain valid.
 class AppAlert {
   static OverlayEntry? _toastEntry;
   static Timer? _toastTimer;
+
+  static const Color _blue = Color(0xFF1769E8);
 
   static Future<T?> show<T>({
     required BuildContext context,
@@ -41,17 +39,12 @@ class AppAlert {
     String closeText = 'Close',
     bool barrierDismissible = true,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final alertColor = _color(type);
-    final isDark = theme.brightness == Brightness.dark;
-
     final effectiveActions = actions.isEmpty
         ? [
             AppAlertAction(
               label: closeText,
               isPrimary: true,
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
             ),
           ]
         : actions;
@@ -60,102 +53,88 @@ class AppAlert {
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final isDark = theme.brightness == Brightness.dark;
+        final surface = isDark ? const Color(0xFF1B2638) : Colors.white;
+        final ink = isDark ? Colors.white : const Color(0xFF182237);
+        final muted = isDark ? Colors.white60 : const Color(0xFF89919D);
+        final accent = _color(type);
+
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 24,
-          ),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Material(
-              color: colorScheme.surface,
-              elevation: 16,
-              shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.16),
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(
-                  color: isDark ? Colors.white12 : Colors.black12,
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Container(
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: isDark ? Colors.white10 : const Color(0xFFF0F2F5),
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 4,
-                    color: alertColor,
-                  ),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: alertColor.withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  _icon(type),
-                                  color: alertColor,
-                                  size: 22,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      title,
-                                      style:
-                                          theme.textTheme.titleMedium?.copyWith(
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    if (message != null &&
-                                        message.trim().isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        message.trim(),
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                          color: colorScheme.onSurface
-                                              .withValues(alpha: 0.72),
-                                          height: 1.45,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (content != null) ...[
-                            const SizedBox(height: 18),
-                            content,
-                          ],
-                          if (details.isNotEmpty) ...[
-                            const SizedBox(height: 18),
-                            _DetailsPanel(children: details),
-                          ],
-                          const SizedBox(height: 20),
-                          _ActionRow(actions: effectiveActions),
-                        ],
-                      ),
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.30 : 0.10),
+                    blurRadius: 34,
+                    offset: const Offset(0, 14),
                   ),
                 ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        height: 58,
+                        width: 58,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: accent.withOpacity(isDark ? 0.18 : 0.09),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(_icon(type), color: accent, size: 28),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      title.trim().isEmpty ? _title(type) : title.trim(),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                    if (message != null && message.trim().isNotEmpty) ...[
+                      const SizedBox(height: 9),
+                      Text(
+                        message.trim(),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: muted,
+                        ),
+                      ),
+                    ],
+                    if (content != null) ...[
+                      const SizedBox(height: 22),
+                      content,
+                    ],
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      _DetailsPanel(children: details),
+                    ],
+                    const SizedBox(height: 26),
+                    _ActionRow(actions: effectiveActions),
+                  ],
+                ),
               ),
             ),
           ),
@@ -180,16 +159,28 @@ class AppAlert {
       actions: [
         AppAlertAction(
           label: cancelText,
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () =>
+              Navigator.of(context, rootNavigator: true).pop(false),
         ),
         AppAlertAction(
           label: confirmText,
           isPrimary: true,
           isDestructive: isDestructive,
-          onPressed: () => Navigator.of(context).pop(true),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
         ),
       ],
     );
+  }
+
+  static void _dismissToast() {
+    _toastTimer?.cancel();
+    _toastTimer = null;
+    final previous = _toastEntry;
+    _toastEntry = null;
+    if (previous != null) {
+      previous.remove();
+      previous.dispose();
+    }
   }
 
   static void toast({
@@ -198,154 +189,129 @@ class AppAlert {
     AppAlertType? type,
     Duration duration = const Duration(seconds: 4),
   }) {
-    final context = Get.context ?? Get.overlayContext;
+    final context = Get.overlayContext ?? Get.context;
     final overlay = Get.key.currentState?.overlay ??
-        (context == null
-            ? null
-            : Overlay.maybeOf(context, rootOverlay: true)) ??
-        (context == null ? null : Overlay.maybeOf(context));
+        (context == null ? null : Overlay.maybeOf(context, rootOverlay: true));
+    if (overlay == null) return;
 
-    if (context == null || overlay == null) {
-      return;
-    }
-
-    _toastTimer?.cancel();
-    _toastEntry?.remove();
+    _dismissToast();
 
     final alertType = type ?? _typeFromTitle(title);
-    final color = _color(alertType);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
+    final accent = _color(alertType);
     late final OverlayEntry entry;
+    bool removed = false;
 
     void close() {
-      _toastTimer?.cancel();
-      if (_toastEntry == entry) {
+      if (removed) return;
+      removed = true;
+      if (identical(_toastEntry, entry)) {
+        _toastTimer?.cancel();
+        _toastTimer = null;
         _toastEntry = null;
       }
       entry.remove();
+      entry.dispose();
     }
 
     entry = OverlayEntry(
-      builder: (context) {
+      builder: (overlayContext) {
+        final theme = Theme.of(overlayContext);
+        final dark = theme.brightness == Brightness.dark;
+        final surface = dark ? const Color(0xFF1B2638) : Colors.white;
+        final ink = dark ? Colors.white : const Color(0xFF182237);
+        final muted = dark ? Colors.white60 : const Color(0xFF89919D);
+        final bottomInset = MediaQuery.of(overlayContext).padding.bottom;
+
         return Positioned(
           left: 16,
           right: 16,
-          bottom: 20 + MediaQuery.of(context).padding.bottom,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 22, end: 0),
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            builder: (context, offset, child) {
-              return Transform.translate(
-                offset: Offset(0, offset),
-                child: AnimatedOpacity(
-                  opacity: offset == 0 ? 1 : 0.65,
-                  duration: const Duration(milliseconds: 180),
-                  child: child,
-                ),
-              );
-            },
-            child: Material(
-              color: Colors.transparent,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? Colors.white12 : Colors.black12,
+          bottom: bottomInset + 18,
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 1, end: 0),
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              builder: (context, progress, child) => Transform.translate(
+                offset: Offset(0, 28 * progress),
+                child: Opacity(opacity: 1 - progress, child: child),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 15, 8, 15),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color:
+                              dark ? Colors.white12 : const Color(0xFFEBEFF5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(dark ? 0.30 : 0.12),
+                            blurRadius: 25,
+                            offset: const Offset(0, 9),
+                          ),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isDark ? 0.38 : 0.18,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: accent.withOpacity(dark ? 0.18 : 0.10),
+                              shape: BoxShape.circle,
+                            ),
+                            child:
+                                Icon(_icon(alertType), color: accent, size: 23),
                           ),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          right: null,
-                          child: ColoredBox(
-                            color: color,
-                            child: const SizedBox(width: 4),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 12, 8, 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  _icon(alertType),
-                                  color: color,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      title.trim().isEmpty
-                                          ? _title(alertType)
-                                          : title.trim(),
-                                      style:
-                                          theme.textTheme.bodyLarge?.copyWith(
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    if (message.trim().isNotEmpty) ...[
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        message.trim(),
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                          color: colorScheme.onSurface
-                                              .withValues(alpha: 0.72),
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                tooltip: 'Close',
-                                onPressed: close,
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.56,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title.trim().isEmpty
+                                      ? _title(alertType)
+                                      : title.trim(),
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: ink,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ),
-                            ],
+                                if (message.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    message.trim(),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: muted,
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          IconButton(
+                            tooltip: 'Dismiss notification',
+                            onPressed: close,
+                            icon: Icon(Icons.close_rounded,
+                                color: muted, size: 19),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -363,7 +329,7 @@ class AppAlert {
 
   static Widget detail(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -372,9 +338,9 @@ class AppAlert {
             child: Text(
               label,
               style: TextStyle(
-                color: Get.theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                color: Get.theme.colorScheme.onSurface.withOpacity(0.58),
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -405,46 +371,47 @@ class AppAlert {
       case AppAlertType.error:
         return AppColors.danger;
       case AppAlertType.info:
-        return AppColors.primary1;
+        return _blue;
     }
   }
 
   static IconData _icon(AppAlertType type) {
     switch (type) {
       case AppAlertType.success:
-        return Icons.check_circle_rounded;
+        return Icons.check_circle_outline_rounded;
       case AppAlertType.warning:
-      case AppAlertType.confirm:
         return Icons.warning_amber_rounded;
+      case AppAlertType.confirm:
+        return Icons.help_outline_rounded;
       case AppAlertType.error:
-        return Icons.error_rounded;
+        return Icons.error_outline_rounded;
       case AppAlertType.info:
-        return Icons.info_rounded;
+        return Icons.info_outline_rounded;
     }
   }
 
   static AppAlertType _typeFromTitle(String title) {
-    final normalized = title.toLowerCase().trim();
-
-    if (normalized.contains('success') ||
-        normalized.contains('saved') ||
-        normalized.contains('submitted') ||
-        normalized.contains('enabled')) {
+    final value = title.toLowerCase().trim();
+    if (value.contains('success') ||
+        value.contains('saved') ||
+        value.contains('submitted') ||
+        value.contains('enabled') ||
+        value.contains('otp sent') ||
+        value.contains('disabled')) {
       return AppAlertType.success;
     }
-
-    if (normalized.contains('warning') ||
-        normalized.contains('limit') ||
-        normalized.contains('cancel')) {
+    if (value.contains('warning') ||
+        value.contains('limit') ||
+        value.contains('cancel')) {
       return AppAlertType.warning;
     }
-
-    if (normalized.contains('error') ||
-        normalized.contains('failed') ||
-        normalized.contains('invalid')) {
+    if (value.contains('error') ||
+        value.contains('failed') ||
+        value.contains('invalid') ||
+        value.contains('required') ||
+        value.contains('denied')) {
       return AppAlertType.error;
     }
-
     return AppAlertType.info;
   }
 
@@ -466,89 +433,77 @@ class AppAlert {
 
 class _DetailsPanel extends StatelessWidget {
   const _DetailsPanel({required this.children});
-
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
-            : const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark ? Colors.white12 : Colors.black12,
-        ),
+        color: dark ? const Color(0xFF263449) : const Color(0xFFF7F9FC),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
+          crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
 }
 
 class _ActionRow extends StatelessWidget {
   const _ActionRow({required this.actions});
-
   final List<AppAlertAction> actions;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        for (int i = 0; i < actions.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(
-            child: actions[i].isPrimary
-                ? ElevatedButton(
-                    onPressed: actions[i].onPressed,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: actions[i].isDestructive
-                          ? AppColors.danger
-                          : AppColors.primary1,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      actions[i].label,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  )
-                : OutlinedButton(
-                    onPressed: actions[i].onPressed,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: actions[i].isDestructive
-                          ? AppColors.danger
-                          : colorScheme.onSurface,
-                      minimumSize: const Size.fromHeight(46),
-                      side: BorderSide(
-                        color: colorScheme.onSurface.withValues(alpha: 0.16),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      actions[i].label,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
+    final theme = Theme.of(context);
+    final ink = theme.colorScheme.onSurface;
+    // Wrap supports callers that provide more than two actions.
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      alignment: WrapAlignment.center,
+      children: actions.map((action) {
+        final width = actions.length == 1
+            ? 320.0
+            : actions.length == 2
+                ? 130.0
+                : 110.0;
+        return SizedBox(
+          width: width,
+          height: 49,
+          child: action.isPrimary
+              ? ElevatedButton(
+                  onPressed: action.onPressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: action.isDestructive
+                        ? AppColors.danger
+                        : AppAlert._blue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: const StadiumBorder(),
                   ),
-          ),
-        ],
-      ],
+                  child: Text(action.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                )
+              : OutlinedButton(
+                  onPressed: action.onPressed,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor:
+                        action.isDestructive ? AppColors.danger : ink,
+                    side: BorderSide(color: ink.withOpacity(0.13)),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(action.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+        );
+      }).toList(),
     );
   }
 }

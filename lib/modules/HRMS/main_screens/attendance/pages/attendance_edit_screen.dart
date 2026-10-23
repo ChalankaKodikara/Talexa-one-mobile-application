@@ -676,6 +676,17 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _editOption(
+              title: 'Status Only',
+              subtitle: 'Correct attendance classification',
+              icon: Icons.fact_check_outlined,
+              selected: selected == AttendanceEditController.editStatus,
+              onTap: () => controller.selectEditType(AttendanceEditController.editStatus),
+            ),
+          ),
         ],
       ),
     );
@@ -1241,7 +1252,7 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
                   _isDark ? Colors.white38 : const Color(0xFF98A2B3),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(999),
               ),
             ),
             child: controller.isSaving.value
