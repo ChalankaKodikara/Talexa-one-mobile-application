@@ -1,13 +1,13 @@
-// ignore_for_file: depend_on_referenced_packages
-
+// lib/modules/HRMS/main_screens/subpages/viewprofile.dart
+// Minimalist Talexa profile screen, styled to match the redesigned drawer.
 import 'dart:convert';
 
 import 'package:corehris/model/employee.dart';
 import 'package:corehris/modules/HRMS/main_screens/dashboard/dashboard.dart';
 import 'package:corehris/modules/HRMS/main_screens/subpages/controllers/view_profile_con.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:corehris/theme/theme.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ViewProfile extends StatefulWidget {
@@ -19,17 +19,23 @@ class ViewProfile extends StatefulWidget {
 
 class _ViewProfileState extends State<ViewProfile>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  static const Color _blue = Color(0xFF1769E8);
+  static const Color _ink = Color(0xFF182237);
+  static const Color _muted = Color(0xFF7E8CA2);
+  static const Color _line = Color(0xFFE8EDF5);
+
   late final ViewProfileController controller;
   late final TabController _tabController;
+  bool _uploading = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    controller = Get.put(ViewProfileController());
+    controller = Get.isRegistered<ViewProfileController>()
+        ? Get.find<ViewProfileController>()
+        : Get.put(ViewProfileController());
     _tabController = TabController(length: 2, vsync: this);
-
     controller.fetchEmployeeDetails();
   }
 
@@ -44,545 +50,462 @@ class _ViewProfileState extends State<ViewProfile>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
-    controller.dispose();
+    // The GetX controller is owned by GetX dependency management.
     super.dispose();
   }
 
   Future<void> _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (_uploading) return;
+    try {
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (picked == null || !mounted) return;
+      setState(() => _uploading = true);
+      await controller.updateProfilePicture(picked.path);
+    } catch (e) {
+      if (mounted) {
+        Get.snackbar('Unable to update photo', 'Please try again.',
+            snackPosition: SnackPosition.BOTTOM);
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 
-    if (pickedFile != null) {
-      await controller.updateProfilePicture(pickedFile.path);
+  ImageProvider? _getImage(String? raw) {
+    final image = raw?.trim() ?? '';
+    if (image.isEmpty) return null;
+    try {
+      if (image.startsWith('https://') || image.startsWith('http://')) {
+        return NetworkImage(image);
+      }
+      final payload = image.contains(',') ? image.split(',').last : image;
+      return MemoryImage(base64Decode(payload));
+    } catch (_) {
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final background = dark ? const Color(0xFF101623) : const Color(0xFFF5F6F8);
+    final surface = dark ? const Color(0xFF1B2638) : Colors.white;
+    final titleColor = dark ? Colors.white : _ink;
+    final secondary = dark ? const Color(0xFF9EAFC4) : _muted;
+    final separator = dark ? Colors.white12 : _line;
 
-    final bg = theme.scaffoldBackgroundColor;
-    final card = cs.surface;
-    final onCard = cs.onSurface;
-    final subText = cs.onSurface.withOpacity(0.70);
-    final border = isDark ? Colors.white12 : Colors.black12;
-
-    return WillPopScope(
-      onWillPop: () async {
-        Get.offAll(() => DashboardScreen());
-        return false;
-      },
-      child: Scaffold(
-        backgroundColor: bg,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: card,
-          foregroundColor: onCard,
-          title: const Text(
-            'Profile',
-            style: TextStyle(fontWeight: FontWeight.bold),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+      ),
+      child: WillPopScope(
+        onWillPop: () async {
+          // Retain the original Profile screen's back-navigation behavior.
+          Get.offAll(() => DashboardScreen());
+          return false;
+        },
+        child: Scaffold(
+          backgroundColor: background,
+          appBar: AppBar(
+            backgroundColor: background,
+            surfaceTintColor: Colors.transparent,
+            scrolledUnderElevation: 0,
+            elevation: 0,
+            centerTitle: true,
+            title: Text('Profile',
+                style: TextStyle(
+                    color: titleColor,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700)),
+            leading: IconButton(
+              tooltip: 'Back',
+              icon: Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 19, color: titleColor),
+              onPressed: () => Get.offAll(() => DashboardScreen()),
+            ),
           ),
-          centerTitle: true,
-        ),
-        body: Obx(() {
-          if (controller.isLoading.value) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final employee = controller.employee.value;
-          if (employee == null) {
-            return Center(
-              child: Text(
-                'No employee data available',
-                style: TextStyle(color: subText),
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              const SizedBox(height: 16),
-
-              // ================= HEADER CARD =================
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.22 : 0.06),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      )
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          Obx(() {
-                            final profileImage =
-                                controller.profileImageUrl.value;
-                            ImageProvider? imageProvider;
-
-                            if (profileImage != null &&
-                                profileImage.isNotEmpty) {
-                              if (profileImage.startsWith("http")) {
-                                imageProvider = NetworkImage(profileImage);
-                              } else if (profileImage
-                                  .startsWith("data:image")) {
-                                imageProvider = MemoryImage(
-                                  base64Decode(profileImage.split(',').last),
-                                );
-                              }
-                            }
-
-                            return CircleAvatar(
-                              radius: 54,
-                              backgroundColor:
-                                  AppColors.primary2.withOpacity(0.12),
-                              backgroundImage: imageProvider,
-                              child: imageProvider == null
-                                  ? Icon(Icons.person,
-                                      size: 44,
-                                      color: cs.onSurface.withOpacity(0.55))
-                                  : null,
-                            );
-                          }),
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: GestureDetector(
-                              onTap: _pickAndUploadImage,
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: card,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: border),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black
-                                          .withOpacity(isDark ? 0.35 : 0.18),
-                                      blurRadius: 6,
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.edit,
-                                  size: 18,
-                                  color: AppColors.primary2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Text(
-                        employee.employeeCallingName,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: onCard,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        employee.employmentHistory.isNotEmpty
-                            ? employee.employmentHistory.last.designationName
-                            : '',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: subText,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // small chips (nice in both themes)
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          _chip(
-                            context,
-                            icon: Icons.badge_outlined,
-                            label: employee.employeeNo,
-                          ),
-                          _chip(
-                            context,
-                            icon: Icons.email_outlined,
-                            label: (employee.employeeEmail.isNotEmpty == true)
-                                ? employee.employeeEmail
-                                : "-",
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // ================= TAB BAR =================
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: card,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: border),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.primary2,
-                    unselectedLabelColor: cs.onSurface.withOpacity(0.55),
-                    labelStyle: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    indicator: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color:
-                          AppColors.primary2.withOpacity(isDark ? 0.22 : 0.12),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    tabs: const [
-                      Tab(icon: Icon(Icons.person_outline), text: "Personal"),
-                      Tab(icon: Icon(Icons.work_outline), text: "Employment"),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // ================= TAB CONTENT =================
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
+          body: Obx(() {
+            final employee = controller.employee.value;
+            if (controller.isLoading.value && employee == null) {
+              return const Center(
+                  child: CircularProgressIndicator(color: _blue));
+            }
+            if (employee == null) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildPersonalTab(employee),
-                    _buildEmploymentTab(employee),
+                    Icon(Icons.person_off_outlined, size: 40, color: secondary),
+                    const SizedBox(height: 12),
+                    Text('No employee data available',
+                        style: TextStyle(color: secondary)),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: controller.fetchEmployeeDetails,
+                      child: const Text('Try again'),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          );
-        }),
+              );
+            }
+
+            return Column(
+              children: [
+                Expanded(
+                  child: RefreshIndicator(
+                    color: _blue,
+                    onRefresh: controller.fetchEmployeeDetails,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 26),
+                      children: [
+                        _profileCard(
+                            employee, surface, titleColor, secondary, dark),
+                        const SizedBox(height: 23),
+                        _sectionTitle('INFORMATION', secondary),
+                        const SizedBox(height: 10),
+                        _tabSelector(surface, dark),
+                        const SizedBox(height: 15),
+                        // Use an AnimatedBuilder so changing tabs rebuilds the
+                        // visible grouped details without nested scrolling.
+                        AnimatedBuilder(
+                          animation: _tabController,
+                          builder: (_, __) => _tabController.index == 0
+                              ? _personalSection(employee, surface, titleColor,
+                                  secondary, separator)
+                              : _employmentSection(employee, surface,
+                                  titleColor, secondary, separator),
+                        ),
+                        const SizedBox(height: 24),
+                        Center(
+                          child: Text('Talexa HRMS  •  Employee profile',
+                              style: TextStyle(fontSize: 11, color: secondary)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // PERSONAL TAB
-  // ------------------------------------------------------------
-  Widget _buildPersonalTab(Employee employee) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final border = isDark ? Colors.white12 : Colors.black12;
+  Widget _profileCard(
+      Employee employee, Color surface, Color ink, Color muted, bool dark) {
+    final image = _getImage(controller.profileImageUrl.value);
+    final designation = employee.employmentHistory.isNotEmpty
+        ? employee.employmentHistory.last.designationName
+        : '';
+    return Container(
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.all(17),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: dark
+                        ? const Color(0xFF294467)
+                        : const Color(0xFFE8F2FF),
+                    backgroundImage: image,
+                    child: image == null
+                        ? const Icon(Icons.person_outline_rounded,
+                            size: 30, color: _blue)
+                        : null,
+                  ),
+                  Positioned(
+                    bottom: -2,
+                    right: -3,
+                    child: Material(
+                      color: _blue,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: _uploading ? null : _pickAndUploadImage,
+                        customBorder: const CircleBorder(),
+                        child: SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: _uploading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.camera_alt_outlined,
+                                  color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(employee.employeeCallingName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: ink)),
+                    const SizedBox(height: 4),
+                    Text(employee.employeeNo,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _blue)),
+                    if (designation.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(designation,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: muted)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (employee.employeeEmail.trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Divider(height: 1, color: dark ? Colors.white12 : _line),
+            const SizedBox(height: 13),
+            Row(
+              children: [
+                Icon(Icons.mail_outline_rounded, size: 16, color: muted),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(employee.employeeEmail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12.5, color: muted)),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-    final details = [
-      {
-        "icon": Icons.phone,
-        "label": "Contact Number",
-        "value": employee.employeeContactNo
-      },
-      {"icon": Icons.email, "label": "Email", "value": employee.employeeEmail},
-      {
-        "icon": Icons.cake,
-        "label": "Date of Birth",
-        "value": employee.employeeDob
-      },
-      {
-        "icon": Icons.home,
-        "label": "Permanent Address",
-        "value": employee.employeePermanentAddress ?? 'N/A'
-      },
-      {
-        "icon": Icons.location_on,
-        "label": "Temporary Address",
-        "value": employee.employeeTemporaryAddress ?? 'N/A'
-      },
-      {
-        "icon": Icons.flag,
-        "label": "Nationality",
-        "value": employee.nationality ?? 'N/A'
-      },
-      {
-        "icon": Icons.favorite,
-        "label": "Marital Status",
-        "value": employee.employeeMaritalStatus ?? 'N/A'
-      },
-      {
-        "icon": Icons.auto_awesome,
-        "label": "Religion",
-        "value": employee.religion ?? 'N/A'
-      },
-    ];
+  Widget _sectionTitle(String text, Color muted) => Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
+                color: muted)),
+      );
 
-    return RefreshIndicator(
-      onRefresh: controller.fetchEmployeeDetails,
-      color: AppColors.primary2,
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        itemCount: details.length,
-        itemBuilder: (_, i) {
-          final item = details[i];
-          return _infoCard(
-            icon: item["icon"] as IconData,
-            label: item["label"] as String,
-            value: (item["value"] as String),
-            cardColor: cs.surface,
-            borderColor: border,
+  Widget _tabSelector(Color surface, bool dark) {
+    return Container(
+      decoration: BoxDecoration(
+          color: surface, borderRadius: BorderRadius.circular(16)),
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        children: [
+          _tabButton('Personal', Icons.person_outline_rounded, 0, dark),
+          _tabButton('Employment', Icons.work_outline_rounded, 1, dark),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabButton(String label, IconData icon, int index, bool dark) {
+    return Expanded(
+      child: AnimatedBuilder(
+        animation: _tabController,
+        builder: (_, __) {
+          final selected = _tabController.index == index;
+          return Material(
+            color: selected
+                ? (dark ? const Color(0xFF28466B) : const Color(0xFFE8F2FF))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => setState(() => _tabController.animateTo(index)),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon,
+                        size: 17,
+                        color: selected
+                            ? (dark ? const Color(0xFF8CBDFF) : _blue)
+                            : (dark ? Colors.white54 : _muted)),
+                    const SizedBox(width: 7),
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: selected
+                                ? (dark ? Colors.white : _blue)
+                                : (dark ? Colors.white60 : _muted))),
+                  ],
+                ),
+              ),
+            ),
           );
         },
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // EMPLOYMENT TAB
-  // ------------------------------------------------------------
-  Widget _buildEmploymentTab(Employee employee) {
+  Widget _personalSection(Employee employee, Color surface, Color ink,
+      Color muted, Color separator) {
+    final rows = <_DetailRow>[
+      _DetailRow(
+          Icons.phone_outlined, 'Contact Number', employee.employeeContactNo),
+      _DetailRow(Icons.email_outlined, 'Email', employee.employeeEmail),
+      _DetailRow(Icons.cake_outlined, 'Date of Birth', employee.employeeDob),
+      _DetailRow(Icons.home_outlined, 'Permanent Address',
+          employee.employeePermanentAddress ?? ''),
+      _DetailRow(Icons.location_on_outlined, 'Temporary Address',
+          employee.employeeTemporaryAddress ?? ''),
+      _DetailRow(
+          Icons.flag_outlined, 'Nationality', employee.nationality ?? ''),
+      _DetailRow(Icons.favorite_border_rounded, 'Marital Status',
+          employee.employeeMaritalStatus ?? ''),
+      _DetailRow(
+          Icons.auto_awesome_outlined, 'Religion', employee.religion ?? ''),
+    ];
+    return _groupedRows(rows, surface, ink, muted, separator);
+  }
+
+  Widget _employmentSection(Employee employee, Color surface, Color ink,
+      Color muted, Color separator) {
     final history = employee.employmentHistory;
-
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final border = isDark ? Colors.white12 : Colors.black12;
-
-    return RefreshIndicator(
-      onRefresh: controller.fetchEmployeeDetails,
-      color: AppColors.primary2,
-      child: history.isEmpty
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                const SizedBox(height: 120),
-                Center(
-                  child: Text(
-                    "No employment history available.",
-                    style: TextStyle(color: cs.onSurface.withOpacity(0.65)),
-                  ),
-                ),
-              ],
-            )
-          : ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-              itemCount: history.length,
-              itemBuilder: (_, i) => _employmentCard(
-                history[i],
-                cardColor: cs.surface,
-                borderColor: border,
-              ),
-            ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // CHIP
-  // ------------------------------------------------------------
-  Widget _chip(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.black.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: isDark ? Colors.white12 : Colors.black12,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary2),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: Get.width * 0.55),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurface.withOpacity(0.85),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // INFO CARD
-  // ------------------------------------------------------------
-  Widget _infoCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color cardColor,
-    required Color borderColor,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: cardColor,
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(
-              Theme.of(context).brightness == Brightness.dark ? 0.20 : 0.05,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primary2.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primary2.withOpacity(0.20)),
-          ),
-          child: Icon(icon, color: AppColors.primary2),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: cs.onSurface.withOpacity(0.60),
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 3),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // EMPLOYMENT CARD
-  // ------------------------------------------------------------
-  Widget _employmentCard(
-    EmploymentHistory history, {
-    required Color cardColor,
-    required Color borderColor,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: cardColor,
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.20 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            history.designationName,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 15.5,
-              color: cs.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            history.departmentName,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface.withOpacity(0.65),
-            ),
-          ),
+    if (history.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(26),
+        decoration: BoxDecoration(
+            color: surface, borderRadius: BorderRadius.circular(18)),
+        child: Column(children: [
+          Icon(Icons.work_history_outlined, size: 30, color: muted),
           const SizedBox(height: 10),
-          _miniRow(
-            icon: Icons.work_outline,
-            text: "Type: ${history.employmentTypeName}",
-          ),
-          const SizedBox(height: 6),
-          _miniRow(
-            icon: Icons.calendar_month_outlined,
-            text: "Duration: ${history.startDate} → ${history.endDate}",
-          ),
-        ],
-      ),
-    );
-  }
+          Text('No employment history available',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: muted, fontSize: 13)),
+        ]),
+      );
+    }
 
-  Widget _miniRow({required IconData icon, required String text}) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: cs.onSurface.withOpacity(0.55)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface.withOpacity(0.80),
-            ),
-          ),
-        ),
+        for (var i = history.length - 1; i >= 0; i--) ...[
+          if (i != history.length - 1) const SizedBox(height: 16),
+          if (history.length > 1) ...[
+            _sectionTitle(
+                i == history.length - 1
+                    ? 'CURRENT EMPLOYMENT'
+                    : 'PREVIOUS EMPLOYMENT',
+                muted),
+            const SizedBox(height: 8),
+          ],
+          _employmentEntry(history[i], surface, ink, muted, separator),
+        ],
       ],
     );
   }
+
+  Widget _employmentEntry(EmploymentHistory history, Color surface, Color ink,
+      Color muted, Color separator) {
+    final rows = <_DetailRow>[
+      _DetailRow(Icons.badge_outlined, 'Designation', history.designationName),
+      _DetailRow(
+          Icons.apartment_outlined, 'Department', history.departmentName),
+      _DetailRow(Icons.work_outline_rounded, 'Employment Type',
+          history.employmentTypeName),
+      _DetailRow(Icons.event_outlined, 'Start Date', history.startDate),
+      _DetailRow(Icons.event_available_outlined, 'End Date', history.endDate),
+    ];
+    return _groupedRows(rows, surface, ink, muted, separator);
+  }
+
+  Widget _groupedRows(List<_DetailRow> rows, Color surface, Color ink,
+      Color muted, Color separator) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 50),
+                child: Divider(height: 1, color: separator),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 13, 16, 13),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(rows[i].icon,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white70
+                          : _ink,
+                      size: 20),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(rows[i].label,
+                            style: TextStyle(
+                                color: muted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        Text(_displayValue(rows[i].value),
+                            style: TextStyle(
+                                color: ink,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _displayValue(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty || text.toLowerCase() == 'null' ? 'Not provided' : text;
+  }
+}
+
+class _DetailRow {
+  final IconData icon;
+  final String label;
+  final Object? value;
+  const _DetailRow(this.icon, this.label, this.value);
 }

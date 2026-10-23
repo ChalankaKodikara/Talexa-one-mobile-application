@@ -1,8 +1,5 @@
 // lib/modules/MASTER/start_page/start_page.dart
-
 import 'dart:convert';
-
-import 'package:corehris/modules/HRMS/lock_screen/screens/login_page.dart';
 
 import 'package:corehris/modules/HRMS/main_screens/subpages/security/pages/security_page.dart';
 
@@ -11,6 +8,7 @@ import 'package:corehris/modules/MASTER/start_page/start_con.dart';
 import 'package:corehris/theme/theme.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,7 +21,45 @@ class LandingPage extends StatefulWidget {
 }
 
 class _LandingPageState extends State<LandingPage> {
+  static const Color _blue = Color(0xFF1769E8);
+  static const Color _navy = Color(0xFF182237);
+  static const Color _muted = Color(0xFF7E8CA2);
+  static const Color _pale = Color(0xFFE8F2FF);
+  static const Color _border = Color(0xFFDDE8F8);
+
   late final LandingController controller;
+
+  // Open the only accessible module once per Start Page instance.
+  // The guard prevents a navigation loop when returning from that module.
+  bool _singleModuleNavigationScheduled = false;
+  bool _singleModuleAutoOpened = false;
+
+  void _openSingleModuleIfNeeded(List<dynamic> services, bool loading) {
+    if (_singleModuleAutoOpened ||
+        _singleModuleNavigationScheduled ||
+        loading ||
+        services.length != 1 ||
+        services.first['isAvailable'] != true) {
+      return;
+    }
+
+    _singleModuleNavigationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _singleModuleNavigationScheduled = false;
+      if (!mounted || _singleModuleAutoOpened || controller.isLoading.value) {
+        return;
+      }
+
+      // Recheck because permissions/modules can change during the frame.
+      final latest = controller.filteredServices;
+      if (latest.length != 1 || latest.first['isAvailable'] != true) {
+        return;
+      }
+
+      _singleModuleAutoOpened = true;
+      controller.onSelectService(latest.first);
+    });
+  }
 
   // Kept for internal compatibility, although search/filter UI is removed.
   final TextEditingController _searchController = TextEditingController();
@@ -96,159 +132,109 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF101623) : Colors.white;
+    final surface = isDark ? const Color(0xFF1B2638) : Colors.white;
 
-    final Color backgroundColor =
-        isDark ? const Color(0xFF0D1117) : const Color(0xFFF8F9FB);
-
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: () {
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        resizeToAvoidBottomInset: true,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // ==================================================
-
-              // MAIN PAGE
-
-              // ==================================================
-
-              Column(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: surface,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: surface,
+      ),
+      // Typography inherits the global theme (SF Pro on iOS).
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          textTheme: Theme.of(context).textTheme,
+          primaryTextTheme: Theme.of(context).primaryTextTheme,
+          primaryColor: _blue,
+          colorScheme: Theme.of(context).colorScheme.copyWith(primary: _blue),
+          scaffoldBackgroundColor: bg,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Scaffold(
+            backgroundColor: bg,
+            resizeToAvoidBottomInset: true,
+            body: SafeArea(
+              child: Stack(
                 children: [
-                  // ================================================
-
-                  // TOP USER HEADER
-
-                  // ================================================
-
-                  _buildTopHeader(
-                    isDark: isDark,
-                  ),
-
-                  // ================================================
-
-                  // PAGE CONTENT
-
-                  // ================================================
-
-                  Expanded(
-                    child: Obx(
-                      () {
-                        final services = controller.filteredServices;
-
-                        return CustomScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          slivers: [
-                            SliverToBoxAdapter(
-                              child: _buildQuickAccess(services, isDark),
-                            ),
-
-                            // =======================================
-                            // SYSTEM TITLE
-
-                            // =======================================
-
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                15,
-                                16,
-                                11,
-                              ),
-                              sliver: SliverToBoxAdapter(
-                                child: _buildSystemsHeader(
-                                  isDark: isDark,
-                                  count: services.length,
-                                ),
-                              ),
-                            ),
-
-                            // =======================================
-
-                            // EMPTY / SYSTEM GRID
-
-                            // =======================================
-
-                            if (services.isEmpty)
+                  Column(
+                    children: [
+                      _buildTopHeader(isDark: isDark),
+                      Expanded(
+                        child: Obx(() {
+                          final services = controller.filteredServices;
+                          final isLoading = controller.isLoading.value;
+                          _openSingleModuleIfNeeded(services, isLoading);
+                          return CustomScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            slivers: [
                               SliverToBoxAdapter(
-                                child: _buildEmptyState(
+                                child: _buildQuickAccess(services, isDark),
+                              ),
+                              SliverPadding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(18, 28, 18, 17),
+                                sliver: SliverToBoxAdapter(
+                                  child: _buildSystemsHeader(
+                                    isDark: isDark,
+                                    count: services.length,
+                                  ),
+                                ),
+                              ),
+                              if (services.isEmpty)
+                                SliverToBoxAdapter(
+                                  child: _buildEmptyState(isDark: isDark),
+                                )
+                              else
+                                _buildSystemGrid(
+                                  services: services,
                                   isDark: isDark,
                                 ),
-                              )
-                            else
-                              _buildSystemGrid(
-                                services: services,
-                                isDark: isDark,
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: 28),
                               ),
-
-                            // =======================================
-
-                            // SMALL SAFE BOTTOM SPACE
-
-                            // =======================================
-
-                            const SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: 24,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                            ],
+                          );
+                        }),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-
-              // ==================================================
-
-              // LOADING OVERLAY
-
-              // ==================================================
-
-              Obx(
-                () {
-                  if (!controller.isLoading.value) {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.18),
-                      alignment: Alignment.center,
+                  Obx(() {
+                    if (!controller.isLoading.value) {
+                      return const SizedBox.shrink();
+                    }
+                    return Positioned.fill(
                       child: Container(
-                        width: 58,
-                        height: 58,
+                        color: Colors.black.withOpacity(.17),
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color:
-                              isDark ? const Color(0xFF1B2230) : Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: AppColors.primary2,
+                        child: Container(
+                          height: 62,
+                          width: 62,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: surface,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: _blue,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  }),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -261,133 +247,73 @@ class _LandingPageState extends State<LandingPage> {
 
   // ============================================================
 
-  Widget _buildTopHeader({
-    required bool isDark,
-  }) {
-    final Color titleColor = isDark ? Colors.white : const Color(0xFF161B22);
+  Widget _buildTopHeader({required bool isDark}) {
+    final titleColor = isDark ? Colors.white : _navy;
+    final secondaryColor = isDark ? Colors.white60 : _muted;
 
-    final Color secondaryColor =
-        isDark ? Colors.white60 : const Color(0xFF667085);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        13,
-        12,
-        7,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? const LinearGradient(
+                colors: [Color(0xFF17253B), Color(0xFF101623)])
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFE5F1FF), Color(0xFFF7FAFF)]),
       ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 18, 20),
       child: Row(
         children: [
-          // ======================================================
-
-          // PROFILE
-
-          // ======================================================
-
           _buildProfileAvatar(),
-
-          const SizedBox(width: 11),
-
-          // ======================================================
-
-          // USER DETAILS
-
-          // ======================================================
-
+          const SizedBox(width: 12),
           Expanded(
-            child: Obx(
-              () {
-                final String employeeName =
-                    controller.employeeName.value.trim();
-
-                final String organization =
-                    controller.organizationName.value.trim();
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      employeeName.isEmpty ? 'Hi!' : 'Hi, $employeeName!',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: titleColor,
-                        fontSize: 17,
-                        height: 1.1,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
+            child: Obx(() {
+              final name = controller.employeeName.value.trim();
+              final organization = controller.organizationName.value.trim();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name.isEmpty ? 'Welcome back.' : 'Hi, $name!',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.5,
+                      color: titleColor,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.business_outlined,
-                          size: 12,
-                          color: secondaryColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            organization.isEmpty
-                                ? 'Your Organization'
-                                : organization,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: secondaryColor,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    organization.isEmpty ? 'Your workspace' : organization,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: secondaryColor,
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ],
+              );
+            }),
           ),
-
-          const SizedBox(width: 8),
-
-          // ======================================================
-
-          // SECURITY
-
-          // ======================================================
-
           _RoundHeaderButton(
             icon: Icons.shield_outlined,
             isDark: isDark,
             tooltip: 'Security',
             onTap: () {
               FocusManager.instance.primaryFocus?.unfocus();
-
-              Get.to(
-                () => SecurityPage(),
-              );
+              Get.to(() => SecurityPage());
             },
           ),
-
-          const SizedBox(width: 7),
-
-          // ======================================================
-
-          // LOGOUT
-
-          // ======================================================
-
+          const SizedBox(width: 9),
           _RoundHeaderButton(
             icon: Icons.logout_rounded,
             isDark: isDark,
-            tooltip: 'Logout',
-            onTap: () {
-              Get.offAll(
-                () => const LoginScreen(),
-              );
-            },
+            tooltip: 'Sign out',
+            onTap: () => _showLogoutSheet(isDark: isDark),
           ),
         ],
       ),
@@ -559,7 +485,7 @@ class _LandingPageState extends State<LandingPage> {
                   height: 50,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1769E8),
+                        backgroundColor: _blue,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16))),
@@ -587,7 +513,7 @@ class _LandingPageState extends State<LandingPage> {
         : eligible.where((s) => _quickTitles.contains(_quickTitle(s))).toList();
     final shortcuts = items.isEmpty ? eligible.take(4).toList() : items;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(18, 17, 18, 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
@@ -614,7 +540,7 @@ class _LandingPageState extends State<LandingPage> {
         ]),
         const SizedBox(height: 12),
         SizedBox(
-          height: 100,
+          height: 106,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -625,21 +551,19 @@ class _LandingPageState extends State<LandingPage> {
               final title = _quickTitle(service);
               final palette = _cardPalette(title);
               return SizedBox(
-                  width: 124,
+                  width: 132,
                   child: Material(
                     color: isDark ? const Color(0xFF1B273B) : Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(22),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(22),
                       onTap: () => _openQuickService(service),
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                             border: Border.all(
-                                color: isDark
-                                    ? Colors.white12
-                                    : const Color(0xFFE7EDF5)),
-                            borderRadius: BorderRadius.circular(18)),
+                                color: isDark ? Colors.white12 : _border),
+                            borderRadius: BorderRadius.circular(22)),
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -658,9 +582,7 @@ class _LandingPageState extends State<LandingPage> {
                                   style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w800,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF192B43))),
+                                      color: isDark ? Colors.white : _navy)),
                             ]),
                       ),
                     ),
@@ -676,9 +598,8 @@ class _LandingPageState extends State<LandingPage> {
     required bool isDark,
     required int count,
   }) {
-    final Color titleColor = isDark ? Colors.white : const Color(0xFF20242C);
-    final Color secondaryColor =
-        isDark ? Colors.white54 : const Color(0xFF8A94A3);
+    final Color titleColor = isDark ? Colors.white : _navy;
+    final Color secondaryColor = isDark ? Colors.white54 : _muted;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
@@ -690,17 +611,17 @@ class _LandingPageState extends State<LandingPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Your Digital Workspace',
+                  'Explore your workspace',
                   style: TextStyle(
                     color: titleColor,
                     fontSize: 19,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Choose a system to continue.',
+                  'Here are some things you can do',
                   style: TextStyle(
                     color: secondaryColor,
                     fontSize: 11.5,
@@ -737,42 +658,34 @@ class _LandingPageState extends State<LandingPage> {
     );
   }
 
-  // Stacked, collapsing cards: each card stays visible as a compact header
-  // when users scroll past it. No additional dependencies are required.
+  // Responsive 2-column dashboard cards, based on the supplied reference.
   Widget _buildSystemGrid({
     required List<dynamic> services,
     required bool isDark,
   }) {
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: SliverMainAxisGroup(
-        slivers: [
-          for (int index = 0; index < services.length; index++)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _CollapsingSystemCardDelegate(
-                title: services[index]['title']?.toString() ?? 'System',
-                subtitle: _serviceSubtitle(services[index]),
-                available: services[index]['isAvailable'] == true,
-                compactColor: _cardPalette(
-                        services[index]['title']?.toString() ?? 'System')
-                    .headerColor,
-                onOpen: () {
-                  final service = services[index];
-                  if (service['isAvailable'] == true) {
-                    controller.onSelectService(service);
-                  } else {
-                    _showUnavailable(service['title']?.toString() ?? 'System');
-                  }
-                },
-                fullCard: _buildSystemCard(
-                  service: services[index],
-                  index: index,
-                  isDark: isDark,
-                ),
-              ),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+      sliver: SliverLayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.crossAxisExtent;
+          final columns = width < 320 ? 1 : 2;
+          return SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              mainAxisExtent: columns == 1 ? 172 : (width < 375 ? 184 : 202),
             ),
-        ],
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildSystemCard(
+                service: services[index],
+                index: index,
+                isDark: isDark,
+              ),
+              childCount: services.length,
+            ),
+          );
+        },
       ),
     );
   }
@@ -856,88 +769,63 @@ class _LandingPageState extends State<LandingPage> {
 
   _SystemCardPalette _cardPalette(String title) {
     final value = title.toLowerCase();
-    if (value.contains('finance')) {
+    if (value.contains('finance') || value.contains('cash')) {
       return const _SystemCardPalette(
-        headerColor: Color(0xFFD9F75B),
-        headerAccent: Color(0xFFBDE13E),
-        darkText: Color(0xFF101828),
+        headerColor: Color(0xFFDCEBFF),
+        headerAccent: Color(0xFFC1DDFF),
+        darkText: _navy,
       );
     }
-    if (value.contains('petty cash') || value.contains('cash')) {
+    if (value.contains('vehicle') || value.contains('tracking')) {
       return const _SystemCardPalette(
-        headerColor: Color(0xFFFFC98B),
-        headerAccent: Color(0xFFF4A95F),
-        darkText: Color(0xFF1D2939),
+        headerColor: Color(0xFFE1F0FF),
+        headerAccent: Color(0xFFCCE3FF),
+        darkText: _navy,
       );
     }
-    if (value.contains('vehicle') ||
-        value.contains('vehical') ||
-        value.contains('tracking') ||
-        value.contains('fleet')) {
+    if (value.contains('hrms') || value.contains('employee')) {
       return const _SystemCardPalette(
-        headerColor: Color(0xFFC7B7FF),
-        headerAccent: Color(0xFFA58DFF),
-        darkText: Color(0xFF111827),
-      );
-    }
-    if (value.contains('attendance') || value.contains('time')) {
-      return const _SystemCardPalette(
-        headerColor: Color(0xFF7AE7DA),
-        headerAccent: Color(0xFF42D1C0),
-        darkText: Color(0xFF0F172A),
-      );
-    }
-    if (value.contains('payroll') || value.contains('salary')) {
-      return const _SystemCardPalette(
-        headerColor: Color(0xFFFFA6BD),
-        headerAccent: Color(0xFFFF8AAA),
-        darkText: Color(0xFF111827),
-      );
-    }
-    if (value.contains('leave') || value.contains('holiday')) {
-      return const _SystemCardPalette(
-        headerColor: Color(0xFF8ED8FF),
-        headerAccent: Color(0xFF5CC2FF),
-        darkText: Color(0xFF0F172A),
-      );
-    }
-    if (value.contains('report') || value.contains('analytic')) {
-      return const _SystemCardPalette(
-        headerColor: Color(0xFFFFE28A),
-        headerAccent: Color(0xFFFFD255),
-        darkText: Color(0xFF101828),
-      );
-    }
-    if (value.contains('hrms') ||
-        value.contains('employee') ||
-        value.contains('human')) {
-      return const _SystemCardPalette(
-        headerColor: Color(0xFF9CC9FF),
-        headerAccent: Color(0xFF72AEFF),
-        darkText: Color(0xFF0F172A),
+        headerColor: Color(0xFFD4E7FF),
+        headerAccent: Color(0xFFB8D8FF),
+        darkText: _navy,
       );
     }
     return const _SystemCardPalette(
-      headerColor: Color(0xFFD8DCEF),
-      headerAccent: Color(0xFFBBC4E3),
-      darkText: Color(0xFF111827),
+      headerColor: Color(0xFFE8F2FF),
+      headerAccent: Color(0xFFD6E8FF),
+      darkText: _navy,
     );
   }
 
+  // Minimal two-column service card: simple icon, strong title, short description.
   Widget _buildSystemCard({
     required dynamic service,
     required int index,
     required bool isDark,
   }) {
-    final String title = service['title']?.toString().trim() ?? 'System';
-    final String subtitle = _serviceSubtitle(service);
-    final bool available = service['isAvailable'] == true;
-    final dynamic rawIcon = service['icon'];
-    final IconData icon = rawIcon is IconData ? rawIcon : _fallbackIcon(title);
-    final palette = _cardPalette(title);
-    final String headline = _cardHeadline(title);
+    final title = service['title']?.toString().trim() ?? 'System';
+    final subtitle = _serviceSubtitle(service);
+    final available = service['isAvailable'] == true;
+    final rawIcon = service['icon'];
+    final icon = rawIcon is IconData ? rawIcon : _fallbackIcon(title);
 
-    void openService() {
+    final lightPastels = <Color>[
+      const Color(0xFFEAF1FF),
+      const Color(0xFFE3F1F7),
+      const Color(0xFFF0F4FF),
+      const Color(0xFFE9F5F3),
+    ];
+    final darkPastels = <Color>[
+      const Color(0xFF1B304D),
+      const Color(0xFF193B4B),
+      const Color(0xFF252C4A),
+      const Color(0xFF1D3D3D),
+    ];
+    final cardColor = (isDark ? darkPastels : lightPastels)[index % 4];
+    final primaryText = isDark ? Colors.white : _navy;
+    final secondaryText = isDark ? const Color(0xFFB7C5D8) : _muted;
+
+    void open() {
       FocusManager.instance.primaryFocus?.unfocus();
       if (available) {
         controller.onSelectService(service);
@@ -946,194 +834,70 @@ class _LandingPageState extends State<LandingPage> {
       }
     }
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final bool compact = constraints.maxWidth < 270;
-      final double inset = compact ? 16 : 20;
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: openService,
-          borderRadius: BorderRadius.circular(24),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? .14 : .07),
-                  blurRadius: 18,
-                  offset: const Offset(0, 7),
-                )
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Column(children: [
-                // Short colored banner, separate for each system.
-                Expanded(
-                  flex: 43,
-                  child: Container(
-                    width: double.infinity,
-                    color: palette.headerColor,
-                    child: Stack(children: [
-                      Positioned(
-                        top: -35,
-                        right: -30,
-                        child: Container(
-                          width: 125,
-                          height: 125,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(.16),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 17,
-                        top: 17,
-                        child: Icon(icon,
-                            size: compact ? 26 : 30,
-                            color: palette.darkText.withOpacity(.80)),
-                      ),
-                      Positioned(
-                        left: inset,
-                        right: 65,
-                        bottom: 16,
-                        child: Text(
-                          headline,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: palette.darkText,
-                            fontSize: compact ? 19 : 22,
-                            height: 1.06,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -.6,
-                          ),
-                        ),
-                      ),
-                    ]),
+    return Material(
+      color: cardColor,
+      borderRadius: BorderRadius.circular(23),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: open,
+        borderRadius: BorderRadius.circular(23),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(17, 17, 14, 14),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final tight = constraints.maxWidth < 155;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon,
+                    size: tight ? 26 : 31,
+                    color: isDark ? const Color(0xFFA7CDFF) : _blue),
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: primaryText,
+                    fontSize: tight ? 13 : 14.5,
+                    height: 1.18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                Expanded(
-                  flex: 57,
-                  child: Stack(clipBehavior: Clip.none, children: [
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.white,
-                        padding: EdgeInsets.fromLTRB(inset, 34, inset, 13),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              Expanded(
-                                  child: Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF101828),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              )),
-                              const SizedBox(width: 9),
-                              SizedBox(
-                                height: 33,
-                                child: ElevatedButton(
-                                  onPressed: openService,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF071746),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    available ? 'Open' : 'Locked',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ]),
-                            const SizedBox(height: 6),
-                            Text(
-                              subtitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF667085),
-                                height: 1.3,
-                                fontSize: 11,
-                              ),
-                            ),
-                            const Spacer(),
-                            Row(children: [
-                              Icon(
-                                  available
-                                      ? Icons.check_circle_outline
-                                      : Icons.lock_outline,
-                                  color: const Color(0xFF667085),
-                                  size: 13),
-                              const SizedBox(width: 5),
-                              Text(
-                                available ? 'Available' : 'Unavailable',
-                                style: const TextStyle(
-                                  color: Color(0xFF667085),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ]),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // White overlapping logo circle.
-                    Positioned(
-                      left: inset,
-                      top: -27,
-                      child: Container(
-                        width: 55,
-                        height: 55,
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(.10),
-                              blurRadius: 13,
-                              offset: const Offset(0, 5),
-                            )
-                          ],
-                        ),
-                        child: Image.asset('lib/images/talexa.png',
-                            fit: BoxFit.contain),
-                      ),
-                    ),
-                  ]),
+                const SizedBox(height: 7),
+                Text(
+                  available ? subtitle : 'Currently unavailable',
+                  maxLines: tight ? 2 : 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryText,
+                    fontSize: tight ? 10 : 11,
+                    height: 1.4,
+                  ),
                 ),
-              ]),
-            ),
-          ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Icon(
+                    available
+                        ? Icons.arrow_outward_rounded
+                        : Icons.lock_outline_rounded,
+                    color: isDark ? Colors.white60 : _blue,
+                    size: 17,
+                  ),
+                ),
+              ],
+            );
+          }),
         ),
-      );
-    });
+      ),
+    );
   }
 
   Widget _buildCardMeta(IconData icon, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: const Color(0xFF667085)),
+        Icon(icon, size: 14, color: _muted),
         const SizedBox(width: 5),
         Flexible(
           child: Text(
@@ -1704,7 +1468,7 @@ class _RoundHeaderButton extends StatelessWidget {
             height: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF171D27) : const Color(0xFFF1F3F6),
+              color: isDark ? const Color(0xFF171D27) : const Color(0xFFE8F2FF),
               shape: BoxShape.circle,
             ),
             child: Icon(

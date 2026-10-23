@@ -4,6 +4,7 @@ import 'package:corehris/modules/HRMS/lock_screen/controller/logincon.dart';
 import 'package:corehris/modules/HRMS/lock_screen/screens/login_page.dart';
 import 'package:corehris/utils/app_alert.dart';
 import 'package:flutter/material.dart';
+import 'package:corehris/theme/theme.dart' show talexaFontFamily;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:local_auth/local_auth.dart';
@@ -30,7 +31,7 @@ class _PinLoginScreenState extends State<PinLoginScreen>
   TextStyle type(double size,
           {FontWeight weight = FontWeight.w400, Color? color}) =>
       TextStyle(
-          fontFamily: Platform.isIOS ? 'Poppins' : null,
+          fontFamily: talexaFontFamily,
           fontSize: size,
           fontWeight: weight,
           color: color);

@@ -1,3 +1,4 @@
+
 name: corehris
 description: "A new Flutter project."
 
@@ -10,49 +11,51 @@ environment:
   sdk: ^3.1.1
 
 dependencies:
- flutter:
-   sdk: flutter
- app_tracking_transparency: ^2.0.6+1
- cookie_jar: ^4.0.8
- cupertino_icons: ^1.0.8
- device_info_plus: ^13.2.0
- dio: ^5.8.0+1
- dio_cookie_manager: ^3.2.0
- dotted_border: ^3.1.0
- file_picker: ^12.0.0-beta.7
- fl_chart: ^1.0.0
- flutter_animate: ^4.5.2
- flutter_local_notifications: ^22.2.0
- flutter_map: ^8.2.1
- flutter_secure_storage: ^10.3.1
- flutter_swiper_view: ^1.1.8
- geocoding: ^5.0.0
- geolocator: ^14.0.2
- get: ^4.7.2
- google_maps_flutter: ^2.12.3
- googleapis: ^16.0.0
- googleapis_auth: ^2.0.0
- hexcolor: ^3.0.1
- iconly: ^1.0.1
- image_picker: ^1.2.0
- intl: ^0.20.2
- latlong2: ^0.10.1
- local_auth: ^3.0.2
- location: ^10.0.2
- lucide_icons_flutter: ^3.1.1
- network_info_plus: ^8.2.1
- pdf: ^3.11.3
- permission_handler: ^12.0.1
- printing: ^5.14.2
- shared_preferences: ^2.5.3
- socket_io_client: ^3.1.2
- syncfusion_flutter_calendar: ^34.1.32
- system_info2: ^4.1.0
- table_calendar: ^3.2.0
- timezone: ^0.11.1
- url_launcher: ^6.3.2
- web_socket_channel: ^3.0.3
- jni: ^1.0.3
+  flutter:
+    sdk: flutter
+
+  app_tracking_transparency: ^2.0.6+1
+  cookie_jar: ^4.0.8
+  cupertino_icons: ^1.0.8
+  device_info_plus: ^13.2.0
+  dio: ^5.8.0+1
+  dio_cookie_manager: ^3.2.0
+  dotted_border: ^3.1.0
+  file_picker: ^12.0.0-beta.7
+  fl_chart: ^1.0.0
+  flutter_animate: ^4.5.2
+  flutter_local_notifications: ^22.2.0
+  flutter_map: ^8.2.1
+  flutter_secure_storage: ^10.3.1
+  flutter_swiper_view: ^1.1.8
+  geocoding: ^5.0.0
+  geolocator: ^14.0.2
+  get: ^4.7.2
+  google_maps_flutter: ^2.12.3
+  googleapis: ^16.0.0
+  googleapis_auth: ^2.0.0
+  hexcolor: ^3.0.1
+  iconly: ^1.0.1
+  image_picker: ^1.2.0
+  intl: ^0.20.2
+  latlong2: ^0.10.1
+  local_auth: ^3.0.2
+  location: ^10.0.2
+  lucide_icons_flutter: ^3.1.1
+  network_info_plus: ^8.2.1
+  pdf: ^3.11.3
+  permission_handler: ^12.0.1
+  printing: ^5.14.2
+  shared_preferences: ^2.5.3
+  socket_io_client: ^3.1.2
+  syncfusion_flutter_calendar: ^34.1.32
+  system_info2: ^4.1.0
+  table_calendar: ^3.2.0
+  timezone: ^0.11.1
+  url_launcher: ^6.3.2
+  web_socket_channel: ^3.0.3
+  jni: ^1.0.3
+  google_fonts: ^9.0.0
 
 dev_dependencies:
   flutter_test:
@@ -70,6 +73,25 @@ flutter:
     - lib/images/
     - shorebird.yaml
     - assets/images/talentfort_logo.png
+
+  # SF Pro Display font configuration.
+  # Bundle these only where your font license permits.
+  
+  
+  fonts:
+    - family: SFPro
+      fonts:
+        - asset: assets/fonts/SFPRODISPLAYREGULAR.OTF
+          weight: 400
+
+        - asset: assets/fonts/SFPRODISPLAYMEDIUM.OTF
+          weight: 500
+
+        - asset: assets/fonts/SFPRODISPLAYBOLD.OTF
+          weight: 700
+
+
+
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true

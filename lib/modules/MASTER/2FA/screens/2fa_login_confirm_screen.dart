@@ -1,329 +1,153 @@
-// lib/modules/screens/2FA/screens/twofa_login_verification_screen.dart
-// ignore_for_file: depend_on_referenced_packages
-
-import 'dart:ui';
 import 'package:corehris/modules/MASTER/2FA/controllers/2fa_login_con.dart';
-import 'package:corehris/theme/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 class TwoFaLoginVerificationScreen extends StatefulWidget {
-  const TwoFaLoginVerificationScreen({Key? key}) : super(key: key);
+  const TwoFaLoginVerificationScreen({super.key});
 
   @override
   State<TwoFaLoginVerificationScreen> createState() =>
       _TwoFaLoginVerificationScreenState();
 }
 
-class _TwoFaLoginVerificationScreenState
-    extends State<TwoFaLoginVerificationScreen>
-    with SingleTickerProviderStateMixin {
+class _TwoFaLoginVerificationScreenState extends State<TwoFaLoginVerificationScreen> {
+  static const blue = Color(0xFF1769E8);
   late final TwoFaLoginController c;
-
-  late final AnimationController _pageAnim;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
+  final otpFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
-
-    // ✅ keep Get.put here, so it won't re-create controller on every build
-    c = Get.put(TwoFaLoginController());
-
-    _pageAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
-    );
-
-    _fade = CurvedAnimation(parent: _pageAnim, curve: Curves.easeOutCubic);
-
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.03),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _pageAnim, curve: Curves.easeOutCubic));
-
-    _pageAnim.forward();
+    c = Get.isRegistered<TwoFaLoginController>()
+        ? Get.find<TwoFaLoginController>() : Get.put(TwoFaLoginController());
   }
 
   @override
   void dispose() {
-    _pageAnim.dispose();
+    otpFocus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bg = dark ? const Color(0xFF101623) : const Color(0xFFF5F6F8);
+    final surface = dark ? const Color(0xFF1B2638) : Colors.white;
+    final ink = dark ? Colors.white : const Color(0xFF182237);
+    final muted = dark ? Colors.white60 : const Color(0xFF89919D);
+    final line = dark ? Colors.white12 : const Color(0xFFECEFF3);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text("Two-Factor Verification"),
+        title: const Text('Verify Login', style: TextStyle(fontSize: 17,
+          fontWeight: FontWeight.w700)),
         centerTitle: true,
-        backgroundColor: theme.appBarTheme.backgroundColor,
-        foregroundColor: theme.appBarTheme.foregroundColor,
+        backgroundColor: bg,
+        foregroundColor: ink,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
-      body: FadeTransition(
-        opacity: _fade,
-        child: SlideTransition(
-          position: _slide,
-          child: Obx(() {
-            return Stack(
-              children: [
-                ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                  children: [
-                    _headerCard(context),
-
-                    const SizedBox(height: 14),
-
-                    _otpCard(context, isDark),
-
-                    const SizedBox(height: 18),
-
-                    // ✅ Verify button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: c.isProcessing.value ? null : c.verifyOtp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary2,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          child: c.isProcessing.value
-                              ? const SizedBox(
-                                  key: ValueKey("btnLoader"),
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  key: ValueKey("btnText"),
-                                  "Verify & Login",
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ✅ Smooth loader overlay (blur + fade + scale)
-                _loadingOverlay(context),
-              ],
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  Widget _headerCard(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.18 : 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
+      body: SafeArea(top: false, child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 30, 20, 32),
+        child: Column(children: [
+          const SizedBox(height: 12),
+          const Icon(Icons.mark_email_read_outlined, color: blue, size: 44),
+          const SizedBox(height: 20),
+          Text('Verify it’s you', style: TextStyle(fontSize: 25,
+            fontWeight: FontWeight.w700, color: ink)),
+          const SizedBox(height: 10),
+          Text('Enter the six-digit verification code sent to your email address.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, height: 1.5, color: muted)),
+          const SizedBox(height: 12),
+          AnimatedBuilder(animation: c.emailController, builder: (context, _) =>
+            Text(c.emailController.text, textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                color: blue))),
+          const SizedBox(height: 34),
+          Align(alignment: Alignment.centerLeft,
+            child: Text('VERIFICATION CODE', style: TextStyle(color: muted,
+              fontSize: 10.5, fontWeight: FontWeight.w600, letterSpacing: .9))),
+          const SizedBox(height: 10),
           Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.primary2.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child:
-                const Icon(Icons.password_outlined, color: AppColors.primary2),
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 23, 16, 22),
+            decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(19)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Enter OTP', style: TextStyle(color: ink, fontSize: 14,
+                fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text('Use the latest code received in your inbox.',
+                style: TextStyle(fontSize: 12, height: 1.4, color: muted)),
+              const SizedBox(height: 22),
+              AnimatedBuilder(animation: c.otpController, builder: (context, _) {
+                final otp = c.otpController.text;
+                return SizedBox(height: 56, child: Stack(children: [
+                  Positioned.fill(child: TextField(
+                    controller: c.otpController,
+                    focusNode: otpFocus,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    maxLength: 6,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6)],
+                    showCursor: false,
+                    enableInteractiveSelection: false,
+                    style: const TextStyle(color: Colors.transparent, fontSize: 22),
+                    decoration: const InputDecoration(counterText: '', filled: false,
+                      border: InputBorder.none, enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none),
+                    onSubmitted: (_) { if (!c.isProcessing.value) c.verifyOtp(); },
+                  )),
+                  IgnorePointer(child: Row(children: List.generate(6, (i) => Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: dark ? const Color(0xFF263449) : const Color(0xFFF7FAFF),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: i < otp.length ? blue : line),
+                      ),
+                      child: Text(i < otp.length ? otp[i] : '',
+                        style: TextStyle(color: ink, fontSize: 20,
+                          fontWeight: FontWeight.w700)),
+                    ),
+                  )))),
+                ]));
+              }),
+              const SizedBox(height: 25),
+              Obx(() => SizedBox(width: double.infinity, height: 52,
+                child: ElevatedButton(
+                  onPressed: c.isProcessing.value ? null : () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    c.verifyOtp();
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: blue,
+                    foregroundColor: Colors.white, elevation: 0,
+                    disabledBackgroundColor: blue.withOpacity(.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                  child: c.isProcessing.value
+                      ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Verify & Continue',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
+              )),
+            ]),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Enter Verification Code",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ) ??
-                      const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "A 6-digit code has been sent to your email.",
-                  style: theme.textTheme.bodySmall?.copyWith(
-                        height: 1.35,
-                        color:
-                            theme.textTheme.bodySmall?.color?.withOpacity(0.8),
-                      ) ??
-                      const TextStyle(fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+          const SizedBox(height: 25),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.lock_outline_rounded, size: 16, color: muted),
+            const SizedBox(width: 8),
+            Flexible(child: Text('Secure verification for your account',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: muted))),
+          ]),
+        ]),
+      )),
     );
-  }
-
-  Widget _otpCard(BuildContext context, bool isDark) {
-    final theme = Theme.of(context);
-
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Email (read-only)
-            TextField(
-              controller: c.emailController,
-              readOnly: true,
-              decoration: InputDecoration(
-                labelText: "Email",
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // OTP
-            TextField(
-              controller: c.otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: InputDecoration(
-                labelText: "OTP Code",
-                counterText: "",
-                prefixIcon: const Icon(Icons.key_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            Text(
-              "Tip: Check your inbox & spam folder.",
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.textTheme.bodySmall?.color?.withOpacity(0.75),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _loadingOverlay(BuildContext context) {
-    return Obx(() {
-      final show = c.isProcessing.value;
-      if (!show) return const SizedBox.shrink();
-
-      return Positioned.fill(
-        child: Stack(
-          children: [
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(color: Colors.black.withOpacity(0.28)),
-            ),
-            Center(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.92, end: 1),
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutBack,
-                builder: (_, scale, child) =>
-                    Transform.scale(scale: scale, child: child),
-                child: Container(
-                  width: 200,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: AppColors.primary2,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        "Verifying...",
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Please wait",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.color
-                                  ?.withOpacity(0.7),
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    });
   }
 }

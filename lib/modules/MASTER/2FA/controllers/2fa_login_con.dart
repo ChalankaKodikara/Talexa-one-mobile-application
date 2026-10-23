@@ -36,10 +36,11 @@ class TwoFaLoginController extends GetxController {
   // ✅ VERIFY OTP
   // =========================================================
   Future<void> verifyOtp() async {
+    if (isProcessing.value) return;
     final otp = otpController.text.trim();
     final email = emailController.text.trim();
 
-    if (otp.length != 6) {
+    if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
       AppAlert.toast(
         title: "Error",
         message: "Enter valid 6 digit OTP",

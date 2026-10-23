@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Talexa HRMS typography. Register the SFPro family in pubspec.yaml.
+/// Only bundle these font assets on platforms where licensing permits.
+String get talexaFontFamily => 'SFPro';
+
+String get talexaDisplayFontFamily => 'SFPro';
+
 /// ============================================================
 /// 🎨 APP COLORS
 /// ============================================================
@@ -51,6 +57,7 @@ class AppColors {
 /// 🌞 LIGHT THEME
 /// ============================================================
 final ThemeData lightTheme = ThemeData(
+  fontFamily: talexaFontFamily,
   useMaterial3: true,
   brightness: Brightness.light,
   colorScheme: const ColorScheme(
@@ -66,7 +73,7 @@ final ThemeData lightTheme = ThemeData(
   ),
   scaffoldBackgroundColor: AppColors.lightBackground,
   primaryColor: AppColors.primary1,
-  appBarTheme: const AppBarTheme(
+  appBarTheme: AppBarTheme(
     backgroundColor: Colors.white,
     foregroundColor: AppColors.textColorPrimary,
     surfaceTintColor: Colors.transparent,
@@ -76,6 +83,7 @@ final ThemeData lightTheme = ThemeData(
       color: AppColors.textColorPrimary,
     ),
     titleTextStyle: TextStyle(
+      fontFamily: talexaDisplayFontFamily,
       color: AppColors.textColorPrimary,
       fontSize: 18,
       fontWeight: FontWeight.w700,
@@ -107,7 +115,7 @@ final ThemeData lightTheme = ThemeData(
     bodySmall: TextStyle(
       color: AppColors.textColorSecondary,
     ),
-  ),
+  ).apply(fontFamily: talexaFontFamily),
   iconTheme: const IconThemeData(
     color: AppColors.textColorSecondary,
   ),
@@ -246,6 +254,7 @@ final ThemeData lightTheme = ThemeData(
 /// 🌙 DARK THEME
 /// ============================================================
 final ThemeData darkTheme = ThemeData(
+  fontFamily: talexaFontFamily,
   useMaterial3: true,
   brightness: Brightness.dark,
   colorScheme: const ColorScheme(
@@ -261,7 +270,7 @@ final ThemeData darkTheme = ThemeData(
   ),
   scaffoldBackgroundColor: AppColors.darkBackground,
   primaryColor: AppColors.primary1,
-  appBarTheme: const AppBarTheme(
+  appBarTheme: AppBarTheme(
     backgroundColor: AppColors.darkSurface,
     foregroundColor: AppColors.darkTextPrimary,
     surfaceTintColor: Colors.transparent,
@@ -271,6 +280,7 @@ final ThemeData darkTheme = ThemeData(
       color: AppColors.darkTextPrimary,
     ),
     titleTextStyle: TextStyle(
+      fontFamily: talexaDisplayFontFamily,
       color: AppColors.darkTextPrimary,
       fontSize: 18,
       fontWeight: FontWeight.w700,
@@ -302,7 +312,7 @@ final ThemeData darkTheme = ThemeData(
     bodySmall: TextStyle(
       color: AppColors.darkTextMuted,
     ),
-  ),
+  ).apply(fontFamily: talexaFontFamily),
   iconTheme: const IconThemeData(
     color: AppColors.darkTextSecondary,
   ),

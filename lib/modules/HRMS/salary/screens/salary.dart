@@ -1,787 +1,272 @@
-// ignore_for_file: prefer_const_constructors, depend_on_referenced_packages
-
 import 'package:corehris/modules/HRMS/salary/controllers/salary.dart';
-import 'package:corehris/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+/// Talexa HRMS payslip — grouped, minimal UI matching Settings and Drawer.
+/// The existing salary controller, API calls, PDF and date picker are unchanged.
 class SalaryScreen extends StatelessWidget {
   const SalaryScreen({super.key});
 
+  static const _blue = Color(0xFF1769E8);
+  static const _navy = Color(0xFF182237);
+  static const _muted = Color(0xFF89919D);
+  static const _success = Color(0xFF16834B);
+  static const _danger = Color(0xFFD64550);
+
   @override
   Widget build(BuildContext context) {
-    final SalaryScreenController controller = Get.put(SalaryScreenController());
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final bgGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF111827),
-            Color(0xFF0B1220),
-          ]
-        : const [
-            Color(0xFFF8FAFF),
-            Color(0xFFF2F5FB),
-            Color(0xFFEFF4FF),
-          ];
+    final controller = Get.isRegistered<SalaryScreenController>()
+        ? Get.find<SalaryScreenController>()
+        : Get.put(SalaryScreenController());
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final background = dark ? const Color(0xFF101623) : const Color(0xFFF5F6F8);
+    final ink = dark ? Colors.white : _navy;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: background,
       appBar: AppBar(
-        elevation: 0,
+        title: const Text('Payslip', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
         centerTitle: true,
-        backgroundColor: theme.appBarTheme.backgroundColor,
-        foregroundColor: theme.appBarTheme.foregroundColor,
-        title: const Text(
-          'Payslip',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        leading: BackButton(color: theme.appBarTheme.foregroundColor),
+        backgroundColor: background,
+        foregroundColor: ink,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
         actions: [
-          IconButton(
-            onPressed: controller.downloadPayslip,
-            tooltip: 'Download Payslip',
-            icon: const Icon(Icons.download_rounded),
-          ),
+          Obx(() => IconButton(
+            tooltip: 'Download payslip',
+            onPressed: controller.isLoading.value || controller.salaryDetails.isEmpty
+                ? null : controller.downloadPayslip,
+            icon: const Icon(Icons.download_outlined),
+          )),
+          const SizedBox(width: 6),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: bgGradient,
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: RefreshIndicator(
-          color: AppColors.primary1,
-          onRefresh: () async => controller.fetchSalary(),
-          child: SingleChildScrollView(
+      body: RefreshIndicator(
+        color: _blue,
+        onRefresh: controller.fetchSalary,
+        child: Obx(() {
+          final loading = controller.isLoading.value;
+          final salary = Map<String, dynamic>.from(controller.salaryDetails);
+          return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-            child: Obx(() {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _topFilterBar(context, controller, isDark),
-                  const SizedBox(height: 16),
-                  if (controller.isLoading.value)
-                    _loadingState()
-                  else if (controller.salaryDetails.isEmpty)
-                    _emptyState(context)
-                  else
-                    _modernPayslip(context, controller),
-                ],
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _topFilterBar(
-    BuildContext context,
-    SalaryScreenController controller,
-    bool isDark,
-  ) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => controller.openDatePicker(context),
-            child: Ink(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withOpacity(isDark ? 0.86 : 1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color:
-                      isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.22 : 0.05),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      color: AppColors.primary1.withOpacity(0.12),
-                    ),
-                    child: const Icon(
-                      Icons.calendar_month_rounded,
-                      color: AppColors.primary1,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      "${controller.selectedMonthLabel} ${controller.selectedYear.value}",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: controller.fetchSalary,
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: AppColors.primary2,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            icon: const Icon(Icons.search_rounded, size: 20),
-            label: const Text(
-              'View',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _loadingState() {
-    return const Padding(
-      padding: EdgeInsets.only(top: 120),
-      child: Center(
-        child: CircularProgressIndicator(color: AppColors.primary1),
-      ),
-    );
-  }
-
-  Widget _emptyState(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 80),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(isDark ? 0.88 : 1),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.24 : 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: 74,
-            width: 74,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary1.withOpacity(0.10),
-            ),
-            child: const Icon(
-              Icons.receipt_long_rounded,
-              color: AppColors.primary1,
-              size: 34,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'No salary records found',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Choose a month and year to view your payslip details.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: theme.colorScheme.onSurface.withOpacity(0.65),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _modernPayslip(
-    BuildContext context,
-    SalaryScreenController controller,
-  ) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final salary = Map<String, dynamic>.from(controller.salaryDetails);
-
-    final allowances = _extractAllowanceRows(salary);
-    final deductions = _extractDeductionRows(salary);
-
-    return Column(
-      children: [
-        _heroCard(context, salary, isDark),
-        const SizedBox(height: 16),
-        _summaryGrid(context, salary, isDark),
-        const SizedBox(height: 16),
-        _employeeInfoCard(context, salary, isDark),
-        const SizedBox(height: 16),
-        _sectionCard(
-          context: context,
-          title: "Earnings",
-          icon: Icons.trending_up_rounded,
-          titleColor: AppColors.success,
-          children: [
-            _buildAmountRow(context, "Basic Salary", salary['basic_salary']),
-            _buildAmountRow(context, "COLA", salary['cola']),
-            _buildAmountRow(context, "Overtime Pay", salary['overtime_pay']),
-            _buildAmountRow(
-                context, "Salary Arrears", salary['salary_arrears']),
-            _buildAmountRow(
-              context,
-              "Reimbursement",
-              salary['reimbursement_amount'],
-            ),
-            _buildAmountRow(context, "Leave Encash", salary['leave_encash']),
-            _buildAmountRow(
-              context,
-              "Spectacle Allowance",
-              salary['spectacle_allowance'],
-            ),
-            ...allowances.map(
-              (a) => _buildAmountRow(context, a['label'], a['value']),
-            ),
-            const SizedBox(height: 8),
-            _buildStrongAmountRow(
-              context,
-              "Total Allowances",
-              salary['total_allowances'],
-            ),
-            _buildStrongAmountRow(context, "Gross Pay", salary['gross_pay']),
-            _buildStrongAmountRow(
-              context,
-              "Total Earnings",
-              salary['total_earnings'],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _sectionCard(
-          context: context,
-          title: "Deductions",
-          icon: Icons.trending_down_rounded,
-          titleColor: AppColors.danger,
-          children: [
-            _buildAmountRow(
-                context, "Salary Advance", salary['salary_advance']),
-            _buildAmountRow(
-              context,
-              "Loan Installment",
-              salary['loan_installment'],
-            ),
-            _buildAmountRow(
-              context,
-              "Calculated No Pay",
-              salary['calculated_nopay'],
-            ),
-            _buildAmountRow(context, "Per Day No Pay", salary['per_day_nopay']),
-            _buildAmountRow(
-              context,
-              "Intern Deduction",
-              salary['intern_deduction'],
-            ),
-            ...deductions.map(
-              (d) => _buildAmountRow(context, d['label'], d['value']),
-            ),
-            const SizedBox(height: 8),
-            _buildStrongAmountRow(
-              context,
-              "Total Deductions",
-              salary['total_deductions'],
-            ),
-            _buildStrongAmountRow(context, "Net Pay", salary['net_pay']),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _sectionCard(
-          context: context,
-          title: "Contributions",
-          icon: Icons.account_balance_wallet_rounded,
-          titleColor: AppColors.primary1,
-          children: [
-            _buildAmountRow(context, "EPF Base", salary['epf_base']),
-            _buildAmountRow(context, "EPF 8%", salary['epf_8']),
-            _buildAmountRow(context, "EPF 12%", salary['epf_12']),
-            _buildAmountRow(context, "ETF 3%", salary['etf_3']),
-            _buildAmountRow(context, "EPF Employer", salary['epf_employer']),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _heroCard(
-      BuildContext context, Map<String, dynamic> salary, bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          colors: isDark
-              ? const [
-                  Color(0xFF1D4ED8),
-                  Color(0xFF2563EB),
-                  Color(0xFF3B82F6),
-                ]
-              : const [
-                  Color(0xFF2563EB),
-                  Color(0xFF3B82F6),
-                  Color(0xFF60A5FA),
-                ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary1.withOpacity(0.28),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 36),
             children: [
-              Container(
-                height: 46,
-                width: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.18)),
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "${_monthName(salary['month'])} ${salary['year'] ?? ''} Payslip",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _statusChip(salary['payroll_status']),
+              _label(context, 'PAYROLL PERIOD'),
+              const SizedBox(height: 10),
+              _periodSelector(context, controller),
+              const SizedBox(height: 24),
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 90),
+                  child: Center(child: CircularProgressIndicator(color: _blue)),
+                )
+              else if (salary.isEmpty)
+                _empty(context)
+              else ...[
+                _netSalary(context, salary),
+                const SizedBox(height: 15),
+                Row(children: [
+                  Expanded(child: _metric(context, 'Gross pay', salary['gross_pay'], Icons.trending_up_rounded)),
+                  const SizedBox(width: 11),
+                  Expanded(child: _metric(context, 'Deductions', salary['total_deductions'], Icons.trending_down_rounded)),
+                ]),
+                const SizedBox(height: 25),
+                _label(context, 'EMPLOYEE INFORMATION'),
+                const SizedBox(height: 9),
+                _group(context, [
+                  _detail(context, 'Employee name', salary['employee_fullname'] ?? salary['employee_calling_name']),
+                  _detail(context, 'Calling name', salary['employee_calling_name']),
+                  _detail(context, 'Employee no.', salary['employee_no']),
+                  _detail(context, 'Designation', salary['job_title']),
+                  _detail(context, 'Email', salary['employee_email']),
+                  _detail(context, 'Organization', salary['organization_name']),
+                  _detail(context, 'Payroll month', '${_monthName(salary['month'])} ${salary['year'] ?? ''}'),
+                ]),
+                const SizedBox(height: 25),
+                _label(context, 'EARNINGS'),
+                const SizedBox(height: 9),
+                _group(context, [
+                  _amount(context, 'Basic salary', salary['basic_salary']),
+                  _amount(context, 'COLA', salary['cola']),
+                  _amount(context, 'Overtime pay', salary['overtime_pay']),
+                  _amount(context, 'Salary arrears', salary['salary_arrears']),
+                  _amount(context, 'Reimbursement', salary['reimbursement_amount']),
+                  _amount(context, 'Leave encashment', salary['leave_encash']),
+                  _amount(context, 'Spectacle allowance', salary['spectacle_allowance']),
+                  ..._extractAllowanceRows(salary).map((e) => _amount(context, e['label'], e['value'])),
+                  _total(context, 'Total allowances', salary['total_allowances']),
+                  _total(context, 'Gross pay', salary['gross_pay']),
+                  _total(context, 'Total earnings', salary['total_earnings'], highlighted: true),
+                ]),
+                const SizedBox(height: 25),
+                _label(context, 'DEDUCTIONS'),
+                const SizedBox(height: 9),
+                _group(context, [
+                  _amount(context, 'Salary advance', salary['salary_advance']),
+                  _amount(context, 'Loan installment', salary['loan_installment']),
+                  _amount(context, 'Calculated no pay', salary['calculated_nopay']),
+                  _amount(context, 'Per day no pay', salary['per_day_nopay']),
+                  _amount(context, 'Intern deduction', salary['intern_deduction']),
+                  ..._extractDeductionRows(salary).map((e) => _amount(context, e['label'], e['value'])),
+                  _total(context, 'Total deductions', salary['total_deductions'], highlighted: true, color: _danger),
+                ]),
+                const SizedBox(height: 25),
+                _label(context, 'STATUTORY CONTRIBUTIONS'),
+                const SizedBox(height: 9),
+                _group(context, [
+                  _amount(context, 'EPF base', salary['epf_base'], showZero: true),
+                  _amount(context, 'Employee EPF 8%', salary['epf_8'], showZero: true),
+                  _amount(context, 'Employer EPF 12%', salary['epf_12'], showZero: true),
+                  _amount(context, 'ETF 3%', salary['etf_3'], showZero: true),
+                  _amount(context, 'EPF employer', salary['epf_employer'], showZero: true),
+                ]),
+                const SizedBox(height: 28),
+                Center(child: Text('Talexa HRMS  •  Salary information',
+                  style: TextStyle(fontSize: 11, color: dark ? Colors.white54 : _muted))),
+              ],
             ],
-          ),
-          const SizedBox(height: 26),
-          Text(
-            "Net Salary",
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.82),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _money(salary['net_pay']),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            (salary['employee_fullname'] ??
-                    salary['employee_calling_name'] ??
-                    '-')
-                .toString(),
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.92),
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            "${salary['employee_no'] ?? '-'} • ${(salary['job_title'] ?? '-').toString().trim()}",
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.76),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
 
-  Widget _summaryGrid(
-      BuildContext context, Map<String, dynamic> salary, bool isDark) {
-    return Row(
-      children: [
-        Expanded(
-          child: _miniStatCard(
-            context,
-            title: "Gross Pay",
-            value: _money(salary['gross_pay']),
-            icon: Icons.account_balance_wallet_outlined,
-            isDark: isDark,
-          ),
-        ),
+  Color _ink(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? Colors.white : _navy;
+  Color _secondary(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? Colors.white60 : _muted;
+  Color _surface(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1B2638) : Colors.white;
+  Color _line(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? Colors.white12 : const Color(0xFFECEFF3);
+
+  Widget _label(BuildContext context, String text) => Padding(
+    padding: const EdgeInsets.only(left: 3),
+    child: Text(text, style: TextStyle(color: _secondary(context), fontSize: 10.5,
+      letterSpacing: .9, fontWeight: FontWeight.w600)),
+  );
+
+  Widget _periodSelector(BuildContext context, SalaryScreenController controller) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(color: _surface(context), borderRadius: BorderRadius.circular(18)),
+      child: Row(children: [
+        const Icon(Icons.calendar_month_outlined, color: _blue, size: 22),
         const SizedBox(width: 12),
-        Expanded(
-          child: _miniStatCard(
-            context,
-            title: "Deductions",
-            value: _money(salary['total_deductions']),
-            icon: Icons.remove_circle_outline_rounded,
-            isDark: isDark,
-          ),
-        ),
-      ],
+        Expanded(child: InkWell(
+          onTap: () => controller.openDatePicker(context),
+          child: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [
+            Expanded(child: Text('${controller.selectedMonthLabel} ${controller.selectedYear.value}',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _ink(context)))),
+            Icon(Icons.expand_more_rounded, size: 20, color: _secondary(context)),
+          ])),
+        )),
+        const SizedBox(width: 8),
+        SizedBox(height: 40, child: ElevatedButton(
+          onPressed: controller.isLoading.value ? null : controller.fetchSalary,
+          style: ElevatedButton.styleFrom(backgroundColor: _blue, foregroundColor: Colors.white,
+            elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          child: const Text('View', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        )),
+      ]),
     );
   }
 
-  Widget _miniStatCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-    required bool isDark,
-  }) {
-    final theme = Theme.of(context);
+  Widget _empty(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 32),
+    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 38),
+    decoration: BoxDecoration(color: _surface(context), borderRadius: BorderRadius.circular(20)),
+    child: Column(children: [
+      const Icon(Icons.receipt_long_outlined, size: 40, color: _blue),
+      const SizedBox(height: 16),
+      Text('No salary records found', style: TextStyle(color: _ink(context), fontSize: 17, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      Text('Choose a month and year to view your payslip.', textAlign: TextAlign.center,
+        style: TextStyle(color: _secondary(context), height: 1.5, fontSize: 12)),
+    ]),
+  );
 
+  Widget _netSalary(BuildContext context, Map<String,dynamic> salary) {
+    final status = (salary['payroll_status'] ?? '-').toString().toUpperCase();
+    final statusColor = status == 'FINAL' ? _success : status == 'DRAFT' ? const Color(0xFFB7791F) : _secondary(context);
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(isDark ? 0.88 : 1),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.22 : 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.primary1, size: 20),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: theme.colorScheme.onSurface.withOpacity(0.62),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _employeeInfoCard(
-    BuildContext context,
-    Map<String, dynamic> salary,
-    bool isDark,
-  ) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(isDark ? 0.88 : 1),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.22 : 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Employee Information",
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _infoTile(context, "Employee Name",
-              salary['employee_fullname'] ?? salary['employee_calling_name']),
-          _infoTile(context, "Calling Name", salary['employee_calling_name']),
-          _infoTile(context, "Employee No", salary['employee_no']),
-          _infoTile(context, "Job Title", salary['job_title']),
-          _infoTile(context, "Email", salary['employee_email']),
-          _infoTile(context, "Organization", salary['organization_name']),
-          _infoTile(
-            context,
-            "Payroll Month",
-            "${_monthName(salary['month'])} ${salary['year'] ?? ''}",
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCard({
-    required BuildContext context,
-    required String title,
-    required IconData icon,
-    required Color titleColor,
-    required List<Widget> children,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(isDark ? 0.88 : 1),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.22 : 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: titleColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: titleColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _statusChip(dynamic status) {
-    final text = (status ?? '-').toString().toUpperCase();
-    final color = text == 'FINAL'
-        ? Colors.green
-        : text == 'DRAFT'
-            ? Colors.orange
-            : Colors.white;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-
-  Widget _infoTile(BuildContext context, String label, dynamic value) {
-    final theme = Theme.of(context);
-    final text = (value ?? '').toString().trim();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withOpacity(0.58),
-              ),
-            ),
-          ),
+      width: double.infinity, padding: const EdgeInsets.all(21),
+      decoration: BoxDecoration(color: _surface(context), borderRadius: BorderRadius.circular(21)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.account_balance_wallet_outlined, size: 22, color: _blue),
           const SizedBox(width: 10),
-          Expanded(
-            flex: 6,
-            child: Text(
-              text.isEmpty ? '-' : text,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.4,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ],
-      ),
+          Expanded(child: Text('Net salary', style: TextStyle(color: _secondary(context), fontSize: 13, fontWeight: FontWeight.w600))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: statusColor.withOpacity(.1), borderRadius: BorderRadius.circular(99)),
+            child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 10.5))),
+        ]),
+        const SizedBox(height: 14),
+        FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(_money(salary['net_pay']),
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 30, color: _ink(context)))),
+        const SizedBox(height: 8),
+        Text('${_monthName(salary['month'])} ${salary['year'] ?? ''}',
+          style: TextStyle(color: _secondary(context), fontSize: 12)),
+      ]),
     );
   }
 
-  Widget _buildAmountRow(BuildContext context, String label, dynamic value) {
-    final theme = Theme.of(context);
-    final amount = double.tryParse(value?.toString() ?? '0') ?? 0;
+  Widget _metric(BuildContext context, String label, dynamic amount, IconData icon) => Container(
+    constraints: const BoxConstraints(minHeight: 108),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: _surface(context), borderRadius: BorderRadius.circular(18)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 20, color: _blue),
+      const SizedBox(height: 9),
+      Text(label, style: TextStyle(fontSize: 11, color: _secondary(context))),
+      const SizedBox(height: 5),
+      FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+        child: Text(_money(amount), style: TextStyle(fontSize: 15, color: _ink(context), fontWeight: FontWeight.w700))),
+    ]),
+  );
 
-    if (amount <= 0) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurface.withOpacity(0.68),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Text(
-            _money(amount),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStrongAmountRow(
-      BuildContext context, String label, dynamic value) {
-    final theme = Theme.of(context);
-    final amount = double.tryParse(value?.toString() ?? '0') ?? 0;
-
+  Widget _group(BuildContext context, List<Widget> rows) {
+    final visible = rows.where((row) => row is! SizedBox).toList();
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: theme.dividerColor.withOpacity(0.45),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w900,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-          Text(
-            _money(amount),
-            style: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w900,
-              color: AppColors.primary1,
-            ),
-          ),
+      width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(color: _surface(context), borderRadius: BorderRadius.circular(19)),
+      child: Column(children: [
+        for (var i=0; i<visible.length; i++) ...[
+          if (i>0) Divider(height: 1, thickness: 1, color: _line(context)),
+          visible[i],
         ],
-      ),
+      ]),
     );
+  }
+
+  Widget _detail(BuildContext context, String label, dynamic value) {
+    final v = (value ?? '').toString().trim();
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 14), child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 4, child: Text(label, style: TextStyle(color: _secondary(context), fontSize: 12))),
+        const SizedBox(width: 9),
+        Expanded(flex: 6, child: Text(v.isEmpty ? '-' : v,
+          textAlign: TextAlign.right, style: TextStyle(color: _ink(context), fontSize: 12.5, fontWeight: FontWeight.w600))),
+      ],
+    ));
+  }
+
+  Widget _amount(BuildContext context, String label, dynamic value, {bool showZero=false}) {
+    final amount = double.tryParse(value?.toString() ?? '0') ?? 0;
+    if (!showZero && amount <= 0) return const SizedBox.shrink();
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 14), child: Row(children: [
+      Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: _secondary(context)))),
+      const SizedBox(width: 12),
+      Text(_money(amount), style: TextStyle(fontSize: 12.5, color: _ink(context), fontWeight: FontWeight.w600)),
+    ]));
+  }
+
+  Widget _total(BuildContext context, String label, dynamic value, {bool highlighted=false, Color? color}) {
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 15), child: Row(children: [
+      Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: _ink(context), fontWeight: FontWeight.w700))),
+      const SizedBox(width: 12),
+      Text(_money(value), style: TextStyle(fontSize: 13, color: highlighted ? (color ?? _blue) : _ink(context),
+        fontWeight: FontWeight.w800)),
+    ]));
   }
 
   List<Map<String, dynamic>> _extractAllowanceRows(

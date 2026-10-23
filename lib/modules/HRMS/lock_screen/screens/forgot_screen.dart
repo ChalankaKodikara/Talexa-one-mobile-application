@@ -2,6 +2,7 @@
 import 'dart:io' show Platform;
 import 'package:corehris/modules/HRMS/lock_screen/controller/forgot_con.dart';
 import 'package:flutter/material.dart';
+import 'package:corehris/theme/theme.dart' show talexaFontFamily;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
@@ -29,7 +30,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   TextStyle type(double size,
           {FontWeight weight = FontWeight.w400, Color? color}) =>
       TextStyle(
-          fontFamily: Platform.isIOS ? 'Poppins' : null,
+          fontFamily: talexaFontFamily,
           fontSize: size,
           fontWeight: weight,
           color: color);
