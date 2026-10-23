@@ -1,0 +1,2 @@
+/home/tdananjaya/TF/core-hris/android/app/.cxx/Debug/1w562j5f/x86/CMakeFiles/edit_cache.dir
+/home/tdananjaya/TF/core-hris/android/app/.cxx/Debug/1w562j5f/x86/CMakeFiles/rebuild_cache.dir

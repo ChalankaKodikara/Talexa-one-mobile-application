@@ -1,0 +1,1 @@
+/home/Botson/QuorTech/Mobile App/core-hris/build/app/intermediates/cxx/Debug/2a3t5b2m/obj/x86_64

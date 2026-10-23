@@ -1,0 +1,38 @@
+buildscript {
+    ext {
+        // ✅ Use Kotlin 2.0.21 (required for device_info_plus 12.1.0+)
+        kotlin_version = '2.2.10'
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
+    dependencies {
+        // ✅ Android Gradle Plugin compatible with Gradle 8.7 and Kotlin 2.0+
+        classpath 'com.android.tools.build:gradle:9.3.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// 🧹 Unified build directory setup
+rootProject.buildDir = "../build"
+
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    project.evaluationDependsOn(":app")
+}
+
+// 🧽 Clean task
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
