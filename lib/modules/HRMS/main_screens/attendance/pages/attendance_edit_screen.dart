@@ -96,7 +96,7 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
             ),
           ),
           title: Text(
-            'Attendance Correction',
+            'Attendance Adjustment',
             style: TextStyle(
               color: _textPrimary,
               fontSize: 18,
@@ -188,10 +188,6 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
                     // EMPLOYEE
                     // ============================================
 
-                    _employeeInfo(),
-
-                    const SizedBox(height: 14),
-
                     // ============================================
                     // DATE
                     // ============================================
@@ -232,7 +228,8 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
                       // ASK USER WHAT TO EDIT
                       // ------------------------------------------
 
-                      _editSelectionCard(),
+                      if (!controller.hasPreselectedAdjustmentType)
+                        _editSelectionCard(),
 
                       // ------------------------------------------
                       // ONLY SHOW AFTER SELECTION
@@ -240,8 +237,11 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
 
                       if (controller.hasSelectedEditType) ...[
                         const SizedBox(height: 16),
-                        _adjustAttendanceCard(),
-                        const SizedBox(height: 16),
+                        if (controller.canEditCheckIn ||
+                            controller.canEditCheckOut) ...[
+                          _adjustAttendanceCard(),
+                          const SizedBox(height: 16),
+                        ],
                         _statusCard(),
                         const SizedBox(height: 16),
                         _reasonCard(),
@@ -320,67 +320,6 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
   // EMPLOYEE
   // ============================================================
 
-  Widget _employeeInfo() {
-    final String name = controller.employeeName.value.trim().isNotEmpty
-        ? controller.employeeName.value.trim()
-        : 'Employee';
-
-    final String employeeNo = controller.employeeNo.value.trim().isNotEmpty
-        ? controller.employeeNo.value.trim()
-        : controller.employeeId.value.trim();
-
-    return _card(
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.primary1.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Text(
-              _initials(name),
-              style: const TextStyle(
-                color: AppColors.primary1,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  employeeNo,
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ============================================================
   // DATE
   // ============================================================
@@ -388,47 +327,38 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
   Widget _dateCard() {
     return _card(
       child: InkWell(
-        onTap: controller.isFetchingAttendance.value
+        onTap: controller.isFetchingAttendance.value ||
+                controller.hasPreselectedAdjustmentType
             ? null
-            : () {
-                controller.selectDate(context);
-              },
-        borderRadius: BorderRadius.circular(14),
+            : () => controller.selectDate(context),
+        borderRadius: BorderRadius.circular(18),
         child: Row(
           children: [
-            _iconBox(
-              icon: Icons.calendar_month_rounded,
-              color: AppColors.primary1,
-            ),
-            const SizedBox(width: 13),
+            const Icon(Icons.calendar_month_outlined,
+                color: Color(0xFF1769E8), size: 24),
+            const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Attendance Date',
+                child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('SELECTED DATE',
                     style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    controller.formattedDate,
-                    style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 15,
+                      fontSize: 10,
+                      letterSpacing: 0.7,
                       fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: _textSecondary,
-            ),
+                      color: _textSecondary,
+                    )),
+                const SizedBox(height: 4),
+                Text(controller.formattedDate,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: _textPrimary,
+                    )),
+              ],
+            )),
+            if (!controller.hasPreselectedAdjustmentType)
+              Icon(Icons.chevron_right_rounded, color: _textSecondary),
           ],
         ),
       ),
@@ -473,140 +403,48 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle(
-            icon: Icons.history_rounded,
-            title: 'Actual Attendance',
-            subtitle: 'Recorded attendance for this date.',
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _actualTimeBox(
-                  label: 'Check In',
-                  value: controller.currentCheckIn.value,
-                  icon: Icons.login_rounded,
-                  color: AppColors.success,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _actualTimeBox(
-                  label: 'Check Out',
-                  value: controller.currentCheckOut.value,
-                  icon: Icons.logout_rounded,
-                  color: AppColors.danger,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 13,
-            ),
-            decoration: BoxDecoration(
-              color: _mutedSurface,
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(
-                color: _border,
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.fact_check_outlined,
-                  color: AppColors.primary1,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Status',
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                const Spacer(),
-                Flexible(
-                  child: Text(
-                    controller.currentStatus.value.trim().isEmpty
-                        ? 'Not available'
-                        : controller.currentStatus.value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Text('Current attendance',
+              style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text('Recorded details for your selected date',
+              style: TextStyle(color: _textSecondary, fontSize: 11.5)),
+          const SizedBox(height: 16),
+          _attendanceInfoRow(Icons.login_rounded, 'Check in',
+              _friendlyTime(controller.currentCheckIn.value)),
+          Divider(height: 24, color: _border),
+          _attendanceInfoRow(Icons.logout_rounded, 'Check out',
+              _friendlyTime(controller.currentCheckOut.value)),
+          Divider(height: 24, color: _border),
+          _attendanceInfoRow(
+              Icons.fact_check_outlined,
+              'Status',
+              controller.currentStatus.value.trim().isEmpty
+                  ? 'Not available'
+                  : controller.currentStatus.value),
         ],
       ),
     );
   }
 
-  Widget _actualTimeBox({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _mutedSurface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _border,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 17,
-                color: color,
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            _friendlyTime(value),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: _textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _attendanceInfoRow(IconData icon, String label, String value) {
+    return Row(children: [
+      Icon(icon, size: 17, color: const Color(0xFF1769E8)),
+      const SizedBox(width: 12),
+      Text(label, style: TextStyle(fontSize: 12.5, color: _textSecondary)),
+      const SizedBox(width: 8),
+      Expanded(
+          child: Text(value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 13,
+                  color: _textPrimary,
+                  fontWeight: FontWeight.w700))),
+    ]);
   }
 
   // ============================================================
@@ -684,7 +522,8 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
               subtitle: 'Correct attendance classification',
               icon: Icons.fact_check_outlined,
               selected: selected == AttendanceEditController.editStatus,
-              onTap: () => controller.selectEditType(AttendanceEditController.editStatus),
+              onTap: () => controller
+                  .selectEditType(AttendanceEditController.editStatus),
             ),
           ),
         ],
@@ -803,17 +642,26 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
     String subtitle;
     IconData icon;
 
+    final type = controller.preselectedAdjustmentType;
     if (fullDay) {
-      title = 'Adjust Full Day';
-      subtitle = 'Correct both check-in and check-out times.';
-      icon = Icons.calendar_month_rounded;
+      title = 'Full Day Correction';
+      subtitle = 'Correct check-in, check-out and/or attendance status.';
+      icon = Icons.calendar_month_outlined;
     } else if (checkIn) {
-      title = 'Adjust Check In';
-      subtitle = 'Correct the employee entry time.';
+      title = type == AttendanceEditController.addCheckIn
+          ? 'Add Check In'
+          : 'Update Check In';
+      subtitle = type == AttendanceEditController.addCheckIn
+          ? 'Enter the missing check-in time.'
+          : 'Enter the corrected check-in time.';
       icon = Icons.login_rounded;
     } else {
-      title = 'Adjust Check Out';
-      subtitle = 'Correct the employee exit time.';
+      title = type == AttendanceEditController.addCheckOut
+          ? 'Add Check Out'
+          : 'Update Check Out';
+      subtitle = type == AttendanceEditController.addCheckOut
+          ? 'Enter the missing check-out time.'
+          : 'Enter the corrected check-out time.';
       icon = Icons.logout_rounded;
     }
 
@@ -829,7 +677,9 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
           const SizedBox(height: 20),
           if (controller.canEditCheckIn)
             _adjustTimeField(
-              title: 'Adjusted Check In',
+              title: type == AttendanceEditController.addCheckIn
+                  ? 'New Check-In Time'
+                  : 'Corrected Check-In Time',
               hint: 'Select check-in time',
               textController: controller.checkInTimeController,
               icon: Icons.login_rounded,
@@ -851,7 +701,9 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
             ),
           if (controller.canEditCheckOut)
             _adjustTimeField(
-              title: 'Adjusted Check Out',
+              title: type == AttendanceEditController.addCheckOut
+                  ? 'New Check-Out Time'
+                  : 'Corrected Check-Out Time',
               hint: 'Select check-out time',
               textController: controller.checkOutTimeController,
               icon: Icons.logout_rounded,
@@ -915,20 +767,18 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
               color: _textSecondary,
               fontSize: 14,
             ),
-            prefixIcon: Icon(
+            prefixIcon: const Icon(
               Icons.access_time_rounded,
-              color: color,
+              color: Color(0xFF1769E8),
             ),
 
             // Use one stable suffix icon.
             // This avoids depending on a controller listener
             // just to redraw the X icon.
             suffixIcon: IconButton(
-              onPressed: textController.text.trim().isEmpty ? onTap : onClear,
+              onPressed: onTap,
               icon: Icon(
-                textController.text.trim().isEmpty
-                    ? Icons.chevron_right_rounded
-                    : Icons.close_rounded,
+                Icons.chevron_right_rounded,
                 color: _textSecondary,
               ),
             ),
@@ -968,6 +818,18 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
   // STATUS
   // ============================================================
 
+  Widget _statusOnlyHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text('Update Status',
+          style: TextStyle(
+            color: _textPrimary,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          )),
+    );
+  }
+
   Widget _statusCard() {
     return _card(
       child: Column(
@@ -975,9 +837,8 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
         children: [
           _sectionTitle(
             icon: Icons.fact_check_outlined,
-            title: 'Attendance Status',
-            subtitle:
-                'Change the status only if the recorded status is incorrect.',
+            title: 'Requested Attendance Status',
+            subtitle: 'Select a new status only if it is incorrect.',
           ),
           const SizedBox(height: 18),
           Wrap(
@@ -989,30 +850,6 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
                 )
                 .toList(),
           ),
-          if (controller.statusChanged) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary1.withValues(
-                  alpha: 0.07,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Current: '
-                '${controller.currentStatus.value.trim().isEmpty ? 'Not available' : controller.currentStatus.value}'
-                '  →  '
-                '${controller.selectedStatus.value}',
-                style: const TextStyle(
-                  color: AppColors.primary1,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1285,7 +1122,7 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Submit Correction',
+                        'Submit Adjustment Request',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -1346,10 +1183,7 @@ class _AttendanceEditScreenState extends State<AttendanceEditScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _iconBox(
-          icon: icon,
-          color: AppColors.primary1,
-        ),
+        Icon(icon, size: 19, color: const Color(0xFF1769E8)),
         const SizedBox(width: 12),
         Expanded(
           child: Column(

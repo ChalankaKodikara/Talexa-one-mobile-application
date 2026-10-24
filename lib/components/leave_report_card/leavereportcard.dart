@@ -1,9 +1,6 @@
-// ignore_for_file: depend_on_referenced_packages, deprecated_member_use
-
 import 'package:corehris/modules/HRMS/main_screens/reports/controllers/leave_con.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:corehris/theme/theme.dart';
 
 class LeaveReportCard extends StatelessWidget {
   final Map<String, dynamic> leave;
@@ -15,34 +12,68 @@ class LeaveReportCard extends StatelessWidget {
     required this.controller,
   });
 
-  // ============================================================
-  // STATUS COLOR
-  // ============================================================
+  static const Color _blue = Color(0xFF1769E8);
+  static const Color _ink = Color(0xFF182237);
+  static const Color _muted = Color(0xFF89919D);
 
-  Color _statusColor(String status) {
-    switch (status.trim().toUpperCase()) {
-      case 'APPROVED':
-        return Colors.green;
-      case 'NOT APPROVED':
-      case 'PENDING':
-        return Colors.orange;
-      case 'REJECTED':
-        return Colors.red;
-      default:
-        return Colors.grey;
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _text(BuildContext context) => _isDark(context) ? Colors.white : _ink;
+
+  Color _secondary(BuildContext context) =>
+      _isDark(context) ? const Color(0xFFA4ADBC) : _muted;
+
+  Color _divider(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF303D50) : const Color(0xFFE9EDF3);
+
+  String _safe(dynamic value, {String fallback = ''}) {
+    if (value == null) return fallback;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return fallback;
     }
+
+    return text;
   }
 
-  // ============================================================
-  // LEAVE ICON
-  // ============================================================
+  String _pretty(String value) {
+    if (value.isEmpty) return value;
 
-  IconData _icon(String type) {
-    final String value = type.toLowerCase();
+    return value.replaceAll('_', ' ').split(RegExp(r'\s+')).map((word) {
+      if (word.isEmpty) return '';
 
-    if (value.contains('sick')) {
-      return Icons.sick_outlined;
+      return '${word[0].toUpperCase()}'
+          '${word.substring(1).toLowerCase()}';
+    }).join(' ');
+  }
+
+  Color _statusColor(String status) {
+    final value = status.trim().toUpperCase();
+
+    if (value.contains('RECLAIM') || value.contains('CANCEL')) {
+      return const Color(0xFF64748B);
     }
+
+    if (value.contains('NOT APPROV') || value.contains('PENDING')) {
+      return const Color(0xFFB98513);
+    }
+
+    if (value.contains('REJECT')) {
+      return const Color(0xFFDC4C4C);
+    }
+
+    if (value.contains('APPROV')) {
+      return const Color(0xFF15965B);
+    }
+
+    return const Color(0xFF64748B);
+  }
+
+  IconData _leaveIcon(String type) {
+    final value = type.toLowerCase();
 
     if (value.contains('annual')) {
       return Icons.beach_access_rounded;
@@ -52,6 +83,10 @@ class LeaveReportCard extends StatelessWidget {
       return Icons.event_available_outlined;
     }
 
+    if (value.contains('sick') || value.contains('medical')) {
+      return Icons.medical_services_outlined;
+    }
+
     if (value.contains('maternity')) {
       return Icons.child_friendly_outlined;
     }
@@ -59,775 +94,427 @@ class LeaveReportCard extends StatelessWidget {
     return Icons.event_note_outlined;
   }
 
-  // ============================================================
-  // HALF DAY TEXT
-  // ============================================================
-
-  String _halfDay(dynamic value) {
-    return (value == 1 || value == '1') ? 'Half Day' : 'Full Day';
+  String _dayType(dynamic value) {
+    return value == 1 || value == '1' || value == true
+        ? 'Half Day'
+        : 'Full Day';
   }
-
-  // ============================================================
-  // HALF DAY COLOR
-  // ============================================================
-
-  Color _halfColor(dynamic value) {
-    return (value == 1 || value == '1') ? Colors.orange : AppColors.primary2;
-  }
-
-  // ============================================================
-  // SAFE STRING
-  // ============================================================
-
-  String _safeString(
-    dynamic value, {
-    String fallback = '',
-  }) {
-    if (value == null) {
-      return fallback;
-    }
-
-    final String result = value.toString().trim();
-
-    if (result.isEmpty || result.toLowerCase() == 'null') {
-      return fallback;
-    }
-
-    return result;
-  }
-
-  // ============================================================
-  // NO PAY WEIGHT
-  // ============================================================
 
   double _noPayWeight() {
-    final dynamic raw = leave['no_pay_weight'];
+    final raw = leave['no_pay_weight'];
 
-    if (raw == null) {
-      return 0;
-    }
+    if (raw is num) return raw.toDouble();
 
-    if (raw is num) {
-      return raw.toDouble();
-    }
-
-    return double.tryParse(
-          raw.toString(),
-        ) ??
-        0;
+    return double.tryParse(raw?.toString() ?? '') ?? 0;
   }
 
-  // ============================================================
-  // LEAVE TYPE BADGE
-  // ============================================================
-
-  Widget _leaveTypeBadge({
-    required bool isDark,
-  }) {
-    final String leaveType = _safeString(
+  String _leaveMode() {
+    final type = _safe(
       leave['leave_type'],
     ).toLowerCase();
 
-    // ----------------------------------------------------------
-    // NO PAY
-    // ----------------------------------------------------------
-
-    if (leaveType == 'no_pay') {
-      final double weight = _noPayWeight();
-
-      String text;
-
-      if (weight == 1) {
-        text = 'No-Pay • Full Day';
-      } else if (weight == 0.5) {
-        text = 'No-Pay • Half Day';
-      } else {
-        final String weightText = weight == weight.roundToDouble()
-            ? weight.toInt().toString()
-            : weight.toString();
-
-        text = 'No-Pay • $weightText Days';
-      }
-
-      return Container(
-        margin: const EdgeInsets.only(
-          top: 7,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 5,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(
-            isDark ? 0.18 : 0.10,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Colors.red.withOpacity(
-              isDark ? 0.55 : 0.40,
-            ),
-          ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isDark ? Colors.red.shade300 : Colors.red.shade700,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+    if (type == 'normal') {
+      return 'Normal Leave';
     }
 
-    // ----------------------------------------------------------
-    // NORMAL
-    // ----------------------------------------------------------
+    if (type == 'no_pay') {
+      final weight = _noPayWeight();
 
-    if (leaveType == 'normal') {
-      return Container(
-        margin: const EdgeInsets.only(
-          top: 7,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 5,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(
-            isDark ? 0.18 : 0.10,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Colors.green.withOpacity(
-              isDark ? 0.55 : 0.40,
-            ),
-          ),
-        ),
-        child: Text(
-          'Normal Leave',
-          style: TextStyle(
-            color: isDark ? Colors.green.shade300 : Colors.green.shade700,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+      if (weight == 1) return 'No-Pay • Full Day';
+      if (weight == 0.5) return 'No-Pay • Half Day';
+
+      return 'No-Pay • $weight Days';
     }
 
-    return const SizedBox.shrink();
+    return '';
   }
 
-  // ============================================================
-  // COVERING EMPLOYEES
-  // ============================================================
-
-  Widget _coveringBlock({
-    required List<dynamic> list,
-    required bool isDark,
-    required Color textPrimary,
-    required Color textSecondary,
-    required Color secondarySurface,
-    required Color borderColor,
-  }) {
-    if (list.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 13,
+  Widget _pill(
+    String label,
+    Color color,
+    bool dark,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(dark ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
         ),
-        decoration: BoxDecoration(
-          color: secondarySurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: borderColor,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.person_off_outlined,
-              size: 18,
-              color: textSecondary,
-            ),
-            const SizedBox(width: 9),
-            Text(
-              'No covering employees',
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: 12.5,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: list.map(
-        (dynamic item) {
-          final Map<String, dynamic> employee;
-
-          if (item is Map<String, dynamic>) {
-            employee = item;
-          } else if (item is Map) {
-            employee = Map<String, dynamic>.from(item);
-          } else {
-            return const SizedBox.shrink();
-          }
-
-          final String employeeName = _safeString(
-            employee['covering_employee_name'],
-            fallback: 'Unknown',
-          );
-
-          final String startTime = _safeString(
-            employee['start_time'],
-          );
-
-          final String endTime = _safeString(
-            employee['end_time'],
-          );
-
-          final String employeeStatus = _safeString(
-            employee['status'],
-            fallback: 'Pending',
-          );
-
-          final Color statusColor = _statusColor(employeeStatus);
-
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(
-              top: 7,
-            ),
-            decoration: BoxDecoration(
-              color: secondarySurface,
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(
-                color: borderColor,
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // ------------------------------------------------
-                // EMPLOYEE ICON
-                // ------------------------------------------------
-
-                Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary2.withOpacity(
-                      isDark ? 0.18 : 0.09,
-                    ),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: const Icon(
-                    Icons.person_outline_rounded,
-                    size: 20,
-                    color: AppColors.primary2,
-                  ),
-                ),
-
-                const SizedBox(width: 11),
-
-                // ------------------------------------------------
-                // EMPLOYEE DETAILS
-                // ------------------------------------------------
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        employeeName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (startTime.isNotEmpty || endTime.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 13,
-                              color: textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                '$startTime - $endTime',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: textSecondary,
-                                  fontSize: 11.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // ------------------------------------------------
-                // COVERING STATUS
-                // ------------------------------------------------
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(
-                      isDark ? 0.17 : 0.10,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    employeeStatus,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ).toList(),
+      ),
     );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
+  String _dateText(dynamic value) {
+    final raw = _safe(value);
+
+    final parsed = DateTime.tryParse(raw);
+
+    if (parsed == null) {
+      return raw.isEmpty ? 'Date unavailable' : raw;
+    }
+
+    return DateFormat('dd MMM yyyy').format(parsed);
+  }
+
+  Widget _sectionTitle(
+    BuildContext context,
+    String title, {
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: _text(context),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (trailing != null) trailing,
+      ],
+    );
+  }
+
+  Widget _coveringEmployee(
+    BuildContext context,
+    Map<String, dynamic> employee,
+  ) {
+    final dark = _isDark(context);
+
+    final name = _safe(
+      employee['covering_employee_name'],
+      fallback: 'Unknown employee',
+    );
+
+    final startTime = _safe(employee['start_time']);
+    final endTime = _safe(employee['end_time']);
+
+    final status = _safe(
+      employee['status'],
+      fallback: 'Pending',
+    );
+
+    final color = _statusColor(status);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.person_outline_rounded,
+            color: _blue,
+            size: 21,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _text(context),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (startTime.isNotEmpty || endTime.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_outlined,
+                        color: _secondary(context),
+                        size: 13,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '$startTime – $endTime',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _secondary(context),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _pill(
+            _pretty(status),
+            color,
+            dark,
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ==========================================================
-    // THEME
-    // ==========================================================
+    final dark = _isDark(context);
 
-    final ThemeData theme = Theme.of(context);
-
-    final bool isDark = theme.brightness == Brightness.dark;
-
-    final Color surfaceColor = isDark ? const Color(0xFF111827) : Colors.white;
-
-    final Color secondarySurface =
-        isDark ? const Color(0xFF1A2236) : const Color(0xFFF8FAFC);
-
-    final Color textPrimary = isDark ? Colors.white : const Color(0xFF111827);
-
-    final Color textSecondary =
-        isDark ? Colors.white70 : const Color(0xFF667085);
-
-    final Color borderColor =
-        isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE4E7EC);
-
-    final Color dividerColor =
-        isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFEAECF0);
-
-    // ==========================================================
-    // DATA
-    // ==========================================================
-
-    final String status = _safeString(
+    final status = _safe(
       leave['approved_status_1'],
       fallback: 'Pending',
     );
 
-    final String type = _safeString(
+    final type = _safe(
       leave['category_name'],
       fallback: 'Leave',
     );
 
-    final String reason = _safeString(
+    final reason = _safe(
       leave['reason'],
       fallback: 'No reason provided',
     );
 
-    final String requestedDate = _safeString(
+    final date = _dateText(
       leave['requested_date'],
     );
 
-    final DateTime? date = DateTime.tryParse(
-      requestedDate,
-    );
+    final mode = _leaveMode();
 
-    final dynamic coveringRaw = leave['covering_employees'];
+    final statusColor = _statusColor(status);
 
-    final List<dynamic> covering =
-        coveringRaw is List ? coveringRaw : <dynamic>[];
+    final coveringRaw = leave['covering_employees'];
 
-    final Color halfDayColor = _halfColor(
-      leave['is_half_day'],
-    );
+    final List<Map<String, dynamic>> covering = [];
 
-    final Color statusColor = _statusColor(status);
-
-    // ==========================================================
-    // CARD
-    // ==========================================================
+    if (coveringRaw is List) {
+      for (final item in coveringRaw) {
+        if (item is Map) {
+          covering.add(
+            Map<String, dynamic>.from(item),
+          );
+        }
+      }
+    }
 
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 10,
+      width: double.infinity,
+
+      // No outer margin: suitable for bottom sheets.
+      padding: const EdgeInsets.symmetric(
+        horizontal: 2,
+        vertical: 4,
       ),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: halfDayColor.withOpacity(
-            isDark ? 0.65 : 0.75,
-          ),
-          width: 1.3,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(
-              isDark ? 0.22 : 0.06,
-            ),
-            blurRadius: isDark ? 14 : 8,
-            offset: const Offset(
-              0,
-              4,
-            ),
-          ),
-        ],
+
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
       ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // =====================================================
-          // HEADER
-          // =====================================================
+          // ========================================
+          // LEAVE HEADER
+          // ========================================
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // -------------------------------------------------
-              // LEAVE ICON
-              // -------------------------------------------------
-
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primary2.withOpacity(
-                    isDark ? 0.18 : 0.09,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  _icon(type),
-                  size: 25,
-                  color: AppColors.primary2,
-                ),
+              Icon(
+                _leaveIcon(type),
+                color: _blue,
+                size: 22,
               ),
-
-              const SizedBox(width: 12),
-
-              // -------------------------------------------------
-              // LEAVE INFORMATION
-              // -------------------------------------------------
-
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       type,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: textPrimary,
+                        color: _text(context),
                         fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-
-                    const SizedBox(height: 7),
-
-                    // -------------------------------------------
-                    // HALF / FULL DAY
-                    // -------------------------------------------
-
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: halfDayColor.withOpacity(
-                              isDark ? 0.18 : 0.11,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _halfDay(
-                              leave['is_half_day'],
-                            ),
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: halfDayColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        _leaveTypeBadge(
-                          isDark: isDark,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // -------------------------------------------
-                    // DATE
-                    // -------------------------------------------
-
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 13,
-                          color: textSecondary,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          date == null
-                              ? 'Unknown Date'
-                              : DateFormat(
-                                  'yyyy-MM-dd',
-                                ).format(
-                                  date,
-                                ),
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // -------------------------------------------------
-              // STATUS + DELETE
-              // -------------------------------------------------
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(
-                        isDark ? 0.18 : 0.11,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: statusColor.withOpacity(
-                          isDark ? 0.40 : 0.25,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      status,
+                    const SizedBox(height: 5),
+                    Text(
+                      date,
                       style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.w700,
+                        color: _secondary(context),
                         fontSize: 11.5,
                       ),
                     ),
-                  ),
-                  if (status.toUpperCase() == 'NOT APPROVED') ...[
-                    const SizedBox(height: 5),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: 'Delete request',
-                      onPressed: () {
-                        controller.confirmDelete(
-                          context,
-                          leave['id'],
-                        );
-                      },
-                      icon: Icon(
-                        Icons.delete_outline_rounded,
-                        color: isDark ? Colors.red.shade300 : Colors.red,
-                        size: 21,
-                      ),
-                    ),
                   ],
-                ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: _pill(
+                  _pretty(status),
+                  statusColor,
+                  dark,
+                ),
               ),
             ],
           ),
 
-          const SizedBox(height: 15),
+          const SizedBox(height: 17),
 
-          // =====================================================
-          // REASON
-          // =====================================================
+          // ========================================
+          // HALF DAY / NORMAL LEAVE
+          // ========================================
 
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: secondarySurface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: borderColor,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _pill(
+                _dayType(leave['is_half_day']),
+                const Color(0xFFBE8313),
+                dark,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.notes_rounded,
-                      size: 16,
-                      color: textSecondary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Reason',
-                      style: TextStyle(
-                        color: textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+              if (mode.isNotEmpty)
+                _pill(
+                  mode,
+                  mode.startsWith('No-Pay')
+                      ? const Color(0xFFDC4C4C)
+                      : const Color(0xFF15965B),
+                  dark,
                 ),
-                const SizedBox(height: 7),
-                Text(
-                  reason,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: textPrimary,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // =====================================================
-          // DIVIDER
-          // =====================================================
+          const SizedBox(height: 20),
 
           Divider(
-            color: dividerColor,
-            thickness: 1,
+            color: _divider(context),
             height: 1,
           ),
 
-          const SizedBox(height: 15),
+          const SizedBox(height: 18),
 
-          // =====================================================
-          // COVERING EMPLOYEES TITLE
-          // =====================================================
+          // ========================================
+          // REASON
+          // ========================================
 
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primary2.withOpacity(
-                    isDark ? 0.17 : 0.08,
-                  ),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: const Icon(
-                  Icons.groups_2_outlined,
-                  size: 17,
-                  color: AppColors.primary2,
-                ),
-              ),
-              const SizedBox(width: 9),
-              Text(
-                'Covering Employees',
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              if (covering.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary2.withOpacity(
-                      isDark ? 0.16 : 0.08,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${covering.length}',
-                    style: const TextStyle(
-                      color: AppColors.primary2,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          _sectionTitle(context, 'Reason'),
 
           const SizedBox(height: 7),
 
-          // =====================================================
-          // COVERING EMPLOYEE LIST
-          // =====================================================
-
-          _coveringBlock(
-            list: covering,
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            secondarySurface: secondarySurface,
-            borderColor: borderColor,
+          Text(
+            reason,
+            style: TextStyle(
+              color: _secondary(context),
+              fontSize: 13,
+              height: 1.5,
+            ),
           ),
+
+          const SizedBox(height: 19),
+
+          Divider(
+            color: _divider(context),
+            height: 1,
+          ),
+
+          const SizedBox(height: 18),
+
+          // ========================================
+          // COVERING EMPLOYEES
+          // ========================================
+
+          _sectionTitle(
+            context,
+            'Covering Employees',
+            trailing: Text(
+              '${covering.length}',
+              style: TextStyle(
+                color: _secondary(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+
+          if (covering.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                'No covering employees assigned',
+                style: TextStyle(
+                  color: _secondary(context),
+                  fontSize: 12,
+                ),
+              ),
+            )
+          else
+            ...covering.map(
+              (employee) => _coveringEmployee(
+                context,
+                employee,
+              ),
+            ),
+
+          // ========================================
+          // DELETE REQUEST
+          // Existing business condition preserved
+          // ========================================
+
+          if (status.trim().toUpperCase() == 'NOT APPROVED') ...[
+            const SizedBox(height: 22),
+            Divider(
+              color: _divider(context),
+              height: 1,
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () {
+                  controller.confirmDelete(
+                    context,
+                    leave['id'],
+                  );
+                },
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                ),
+                label: const Text(
+                  'Delete Leave Request',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC4C4C),
+                  minimumSize: const Size.fromHeight(46),
+                  shape: const StadiumBorder(),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

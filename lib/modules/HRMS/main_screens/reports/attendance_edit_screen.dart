@@ -20,6 +20,13 @@ class _AttendanceEditReportScreenState
     extends State<AttendanceEditReportScreen> {
   late final AttendanceEditReportController controller;
 
+  // Counts from the unfiltered (All) response. Status chips should filter
+  // the request list, not change these headline totals.
+  int? _allCount;
+  int? _pendingCount;
+  int? _approvedCount;
+  int? _rejectedCount;
+
   @override
   void initState() {
     super.initState();
@@ -95,21 +102,7 @@ class _AttendanceEditReportScreenState
           _isDark ? const Color(0xFF0F172A) : const Color(0xFFF4F7FB),
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: _isDark
-                ? const [
-                    Color(0xFF0B1220),
-                    Color(0xFF101A2F),
-                    Color(0xFF0F172A),
-                  ]
-                : const [
-                    Color(0xFFF8FAFF),
-                    Color(0xFFF3F6FB),
-                    Color(0xFFEEF3FA),
-                  ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: _isDark ? const Color(0xFF101623) : const Color(0xFFF5F6F8),
         ),
         child: SafeArea(
           child: Column(
@@ -122,9 +115,6 @@ class _AttendanceEditReportScreenState
                   child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
-                      SliverToBoxAdapter(
-                        child: _buildEmployeeCard(),
-                      ),
                       SliverToBoxAdapter(
                         child: _buildDateFilters(),
                       ),
@@ -233,23 +223,8 @@ class _AttendanceEditReportScreenState
         18,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF2563EB),
-            Color(0xFF2F6BFF),
-            Color(0xFF4F46E5),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.22),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: const Color(0xFF1769E8),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
@@ -263,7 +238,7 @@ class _AttendanceEditReportScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Attendance Requests',
+                  'Adjustment History',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -272,7 +247,7 @@ class _AttendanceEditReportScreenState
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Track attendance correction requests',
+                  'Track your requests and approval status',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.82),
                     fontSize: 12,
@@ -464,7 +439,7 @@ class _AttendanceEditReportScreenState
         children: [
           Expanded(
             child: _QuickButton(
-              label: 'Last 7 Days',
+              label: '7 Days',
               icon: Icons.date_range_rounded,
               onTap: controller.setLastSevenDays,
             ),
@@ -577,57 +552,55 @@ class _AttendanceEditReportScreenState
 
   Widget _buildSummary() {
     return Obx(() {
-      final int total = controller.total.value;
+      final selected = controller.selectedStatus.value.trim().toUpperCase();
+      final loading = controller.isLoading.value;
 
-      final int pending = controller.pendingCount.value;
+      // Capture summary counts only from the unfiltered request result.
+      // Filtering by Pending/Approved/Rejected must not overwrite them.
+      if ((selected == 'ALL' || selected.isEmpty) && !loading) {
+        _allCount = controller.total.value;
+        _pendingCount = controller.pendingCount.value;
+        _approvedCount = controller.approvedCount.value;
+        _rejectedCount = controller.rejectedCount.value;
+      }
 
-      final int approved = controller.approvedCount.value;
+      final total = _allCount ?? controller.total.value;
+      final pending = _pendingCount ?? controller.pendingCount.value;
+      final approved = _approvedCount ?? controller.approvedCount.value;
+      final rejected = _rejectedCount ?? controller.rejectedCount.value;
 
-      final int rejected = controller.rejectedCount.value;
-
-      return SizedBox(
-        height: 102,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            14,
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 3, 16, 14),
+        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
+        decoration: BoxDecoration(
+          color: _isDark ? const Color(0xFF1B2638) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _isDark ? Colors.white10 : const Color(0xFFE8EDF3),
           ),
-          children: [
-            _SummaryCard(
-              label: 'Total',
-              value: total,
-              icon: Icons.receipt_long_rounded,
-              foreground: const Color(0xFF2563EB),
-              background: const Color(0xFFDBEAFE),
-            ),
-            _SummaryCard(
-              label: 'Pending',
-              value: pending,
-              icon: Icons.pending_actions_rounded,
-              foreground: const Color(0xFFD97706),
-              background: const Color(0xFFFEF3C7),
-            ),
-            _SummaryCard(
-              label: 'Approved',
-              value: approved,
-              icon: Icons.check_circle_rounded,
-              foreground: const Color(0xFF16A34A),
-              background: const Color(0xFFDCFCE7),
-            ),
-            _SummaryCard(
-              label: 'Rejected',
-              value: rejected,
-              icon: Icons.cancel_rounded,
-              foreground: const Color(0xFFDC2626),
-              background: const Color(0xFFFEE2E2),
-            ),
-          ],
         ),
+        child: Row(children: [
+          _summaryMetric('All', total, const Color(0xFF1769E8)),
+          _summaryMetric('Pending', pending, const Color(0xFFD38D16)),
+          _summaryMetric('Approved', approved, const Color(0xFF16A34A)),
+          _summaryMetric('Rejected', rejected, const Color(0xFFDC2626)),
+        ]),
       );
     });
+  }
+
+  Widget _summaryMetric(String label, int value, Color color) {
+    return Expanded(
+        child: Column(children: [
+      Text('$value',
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+      const SizedBox(height: 3),
+      Text(label,
+          style: TextStyle(
+              fontSize: 10,
+              color: _isDark ? Colors.white60 : const Color(0xFF89919D))),
+    ]));
   }
 
   // ============================================================
@@ -1559,195 +1532,102 @@ class _AttendanceEditReportScreenState
 // ============================================================
 
 class _RequestCard extends StatelessWidget {
-  const _RequestCard({
-    required this.record,
-    required this.onTap,
-  });
-
+  const _RequestCard({required this.record, required this.onTap});
   final Map<String, dynamic> record;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final _StatusData status = _AttendanceEditReportScreenState._statusData(
-      record['request_status'],
-    );
-
-    return Container(
-      margin: const EdgeInsets.only(
-        bottom: 12,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.06)
-                    : const Color(0xFFE2E8F0),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final status =
+        _AttendanceEditReportScreenState._statusData(record['request_status']);
+    final date =
+        DateTime.tryParse((record['work_date_local'] ?? '').toString());
+    final dateDay = date == null ? '--' : DateFormat('dd').format(date);
+    final month =
+        date == null ? '' : DateFormat('MMM').format(date).toUpperCase();
+    final year = date == null ? '' : DateFormat('yyyy').format(date);
+    final type =
+        _AttendanceEditReportScreenState._prettyText(record['adjustment_type']);
+    final muted = dark ? Colors.white60 : const Color(0xFF89919D);
+    final text = dark ? Colors.white : const Color(0xFF182237);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+            width: 48,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(children: [
+                Text(dateDay,
+                    style: TextStyle(
+                        fontSize: 19,
+                        color: text,
+                        fontWeight: FontWeight.w800)),
+                Text(month,
+                    style: TextStyle(
+                        color: muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700)),
+                Text(year, style: TextStyle(color: muted, fontSize: 9)),
+              ]),
+            )),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF1B2638) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: dark ? Colors.white10 : const Color(0xFFE9EDF3)),
               ),
-            ),
-            child: Column(
-              children: [
-                Row(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: status.background,
-                        borderRadius: BorderRadius.circular(16),
+                    Row(children: [
+                      Icon(Icons.edit_calendar_outlined,
+                          size: 20, color: const Color(0xFF1769E8)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: Text(type,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: text,
+                                  fontSize: 13))),
+                      Icon(Icons.chevron_right_rounded, size: 18, color: muted),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                            color: status.background,
+                            borderRadius: BorderRadius.circular(99)),
+                        child: Text(status.label,
+                            style: TextStyle(
+                                color: status.foreground,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700)),
                       ),
-                      child: Icon(
-                        status.icon,
-                        color: status.foreground,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _AttendanceEditReportScreenState._formatDate(
-                              record['work_date_local'],
-                            ),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Wrap(
-                            spacing: 7,
-                            runSpacing: 7,
-                            children: [
-                              _StatusChip(
-                                label: status.label,
-                                foreground: status.foreground,
-                                background: status.background,
-                              ),
-                              _StatusChip(
-                                label: _AttendanceEditReportScreenState
-                                    ._prettyText(
-                                  record['adjustment_type'],
-                                ),
-                                foreground: const Color(
-                                  0xFF2563EB,
-                                ),
-                                background: const Color(
-                                  0xFFDBEAFE,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 15,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MiniChangeBox(
-                        label: 'Check In',
-                        current: _AttendanceEditReportScreenState._formatTime(
-                          record['current_check_in'],
-                        ),
-                        requested: _AttendanceEditReportScreenState._formatTime(
-                          record['requested_check_in'],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _MiniChangeBox(
-                        label: 'Check Out',
-                        current: _AttendanceEditReportScreenState._formatTime(
-                          record['current_check_out'],
-                        ),
-                        requested: _AttendanceEditReportScreenState._formatTime(
-                          record['requested_check_out'],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _MiniChangeBox(
-                  label: 'Attendance Status',
-                  current: _AttendanceEditReportScreenState._prettyText(
-                    record['current_status'],
-                  ),
-                  requested: _AttendanceEditReportScreenState._prettyText(
-                    record['requested_status'],
-                  ),
-                ),
-                if (_AttendanceEditReportScreenState._hasText(
-                  record['reason'],
-                )) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withOpacity(
-                              0.035,
-                            )
-                          : const Color(
-                              0xFFF8FAFC,
-                            ),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.notes_rounded,
-                          size: 16,
-                          color: Color(0xFF64748B),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _AttendanceEditReportScreenState._safeText(
-                              record['reason'],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              height: 1.4,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
+                      const SizedBox(width: 9),
+                      Expanded(
+                          child: Text('View request details',
+                              style: TextStyle(color: muted, fontSize: 11))),
+                    ]),
+                  ]),
             ),
           ),
-        ),
-      ),
+        )),
+      ]),
     );
   }
 }

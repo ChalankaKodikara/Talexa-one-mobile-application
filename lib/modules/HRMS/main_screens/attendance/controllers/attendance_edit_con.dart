@@ -94,7 +94,13 @@ class AttendanceEditController extends GetxController {
 
   final RxString adjustmentType = ''.obs;
 
-  String _requestedEntryType = ''; 
+  String _requestedEntryType = '';
+
+  /// True when navigation already selected one of the six backend types.
+  bool get hasPreselectedAdjustmentType => _requestedEntryType.isNotEmpty;
+
+  String get preselectedAdjustmentType => _requestedEntryType;
+
 
   static const String addCheckIn = 'ADD_CHECK_IN';
 
